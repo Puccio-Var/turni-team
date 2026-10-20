@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turni Team</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background-color: #3498db; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        /* Stili per i turni */
+        .turno-mattina { background-color: #fff9c4; font-weight: bold; color: #f57f17; }
+        .turno-pomeriggio { background-color: #ffe0b2; font-weight: bold; color: #e65100; }
+        .turno-notte { background-color: #d1c4e9; font-weight: bold; color: #4527a0; }
+        .turno-riposo { background-color: #e0f2f1; color: #00695c; }
+        .turno-ferie { background-color: #ffcdd2; font-weight: bold; color: #b71c1c; }
+        .note { margin-top: 20px; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📅 Turni del Team</h1>
+    <p style="text-align: center;">Consultazione turni di lavoro aggiornati.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome Operatore</th>
+                    <th>Lunedì</th>
+                    <th>Martedì</th>
+                    <th>Mercoledì</th>
+                    <th>Giovedì</th>
+                    <th>Venerdì</th>
+                    <th>Sabato</th>
+                    <th>Domenica</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Esempio di righe dipendenti (puoi modificarle come vuoi) -->
+                <tr>
+                    <td>Mario Rossi</td>
+                    <td class="turno-mattina">Mattina</td>
+                    <td class="turno-mattina">Mattina</td>
+                    <td class="turno-pomeriggio">Pomeriggio</td>
+                    <td class="turno-riposo">Riposo</td>
+                    <td class="turno-notte">Notte</td>
+                    <td class="turno-riposo">Riposo</td>
+                    <td class="turno-ferie">Ferie</td>
+                </tr>
+                <tr>
+                    <td>Giulia Bianchi</td>
+                    <td class="turno-pomeriggio">Pomeriggio</td>
+                    <td class="turno-notte">Notte</td>
+                    <td class="turno-riposo">Riposo</td>
+                    <td class="turno-mattina">Mattina</td>
+                    <td class="turno-mattina">Mattina</td>
+                    <td class="turno-ferie">Ferie</td>
+                    <td class="turno-riposo">Riposo</td>
+                </tr>
+                <!-- Aggiungi qui gli altri operatori -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">
+        <p><strong>Legenda:</strong> 
+            <span class="turno-mattina" style="padding: 2px 6px;">Mattina</span> 
+            <span class="turno-pomeriggio" style="padding: 2px 6px;">Pomeriggio</span> 
+            <span class="turno-notte" style="padding: 2px 6px;">Notte</span> 
+            <span class="turno-riposo" style="padding: 2px 6px;">Riposo</span> 
+            <span class="turno-ferie" style="padding: 2px 6px;">Ferie</span>
+        </p>
+    </div>
+</div>
+
+</body>
+</html>
