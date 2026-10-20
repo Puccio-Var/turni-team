@@ -19,7 +19,7 @@ main{max-width:98%;margin:24px auto;padding:0 12px}
 .stat small{color:var(--muted);font-weight:700;font-size:10px;letter-spacing:.03em;pointer-events:none}
 .stat strong{display:block;font-size:22px;margin-top:4px;pointer-events:none}
 
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;overflow:hidden}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;overflow:hidden;margin-bottom:20px}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
 .tablewrap{overflow:auto}table{border-collapse:separate;border-spacing:0;width:100%}th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 4px;text-align:center}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8faff;cursor:pointer}
 th.selected-day,td.selected-day{background:#edf3ff!important}
 th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:180px;background:#fff;z-index:1;cursor:default}th:first-child{background:#f8faff;z-index:2}.date{display:block;margin-top:2px;font-size:12px;color:var(--ink);letter-spacing:0;text-transform:none;pointer-events:none}
@@ -38,13 +38,8 @@ table.month-view th { font-size: 10px; }
 table.month-view .date { font-size: 11px; }
 table.month-view th:first-child, table.month-view td:first-child { min-width: 150px; }
 
-/* CORRETTO: EFFETTO HOVER SULL'INTERA RIGA (COLONNA FISSA COMPRESA) */
-#roster tbody tr:hover td {
-  background-color: #f1f5f9 !important;
-}
-#roster tbody tr:hover td:first-child {
-  background-color: #f1f5f9 !important;
-}
+#roster tbody tr:hover td { background-color: #f1f5f9 !important; }
+#roster tbody tr:hover td:first-child { background-color: #f1f5f9 !important; }
 
 .Mattina{background:#d5e8f8;color:#1d4ed8}
 .Pomeriggio{background:#d1fae5;color:#065f46}
@@ -79,7 +74,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   .none { background: #fff !important; color: #ccc !important; }
 }
 
-@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%,{justify-content:space-between}}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%;justify-content:space-between}}
 </style>
 </head>
 <body>
@@ -165,6 +160,60 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Non collegato</span></div>
 </section>
 
+<!-- Pannello Storico e Statistiche Avanzate (Visibile SOLO per Admin) -->
+<section class="panel admin hidden" id="historyPanel" style="background:#f8fafc;border:1px solid #cbd5e1;">
+  <div class="panelhead" style="background:#f1f5f9;border-bottom:1px solid #cbd5e1;">
+    <div>
+      <h3 style="color:#1e293b;">📊 Storico e Statistiche Avanzate (Area Riservata Admin)</h3>
+      <p>Seleziona un operatore, imposta l'intervallo di date e scegli i turni da analizzare.</p>
+    </div>
+  </div>
+  <div style="padding:16px;">
+    <div class="formrow" style="align-items:flex-end;gap:12px;">
+      <div>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;">Operatore:</label>
+        <select id="histPerson" class="field" style="min-width:205px;">
+          <option value="">Seleziona operatore...</option>
+        </select>
+      </div>
+      <div>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;">Data Inizio:</label>
+        <input type="date" id="histStart" class="field" style="min-width:150px;">
+      </div>
+      <div>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;">Data Fine:</label>
+        <input type="date" id="histEnd" class="field" style="min-width:150px;">
+      </div>
+      <button type="button" id="histPresetMonth" class="btn" style="background:#e2ecfe;color:var(--blue);border-color:#2457d6;">Ultimi 30 giorni</button>
+      <button type="button" id="histPreset3Months" class="btn">Ultimi 3 mesi</button>
+      <button type="button" id="calcHistoryBtn" class="btn primary">Genera Storico</button>
+    </div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+      <label class="small" style="font-weight:700;display:block;margin-bottom:6px;">Seleziona Turni da includere nell'analisi:</label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;" id="histShiftCheckboxes">
+        <label><input type="checkbox" value="Mattina" checked> Mattina</label>
+        <label><input type="checkbox" value="Pomeriggio" checked> Pomeriggio</label>
+        <label><input type="checkbox" value="Notte" checked> Notte</label>
+        <label><input type="checkbox" value="Riposo" checked> Riposo</label>
+        <label><input type="checkbox" value="Ferie" checked> Ferie</label>
+        <label><input type="checkbox" value="Malattia" checked> Malattia</label>
+      </div>
+    </div>
+
+    <div id="histResultContainer" class="hidden" style="margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;">
+      <h4 id="histResultTitle" style="margin:0 0 8px;font-size:15px;color:var(--blue);">Risultati Storico</h4>
+      <div id="histResultSummary" style="font-size:13px;margin-bottom:10px;font-weight:600;"></div>
+      <div class="tablewrap" style="max-height:220px;">
+        <table id="histResultTable" style="font-size:12px;">
+          <thead><tr><th>Data</th><th>Giorno</th><th>Turno</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="panel admin hidden" id="adminPanel">
   <h3>Gestione colleghi e Importazione</h3>
   <div class="small">Aggiungi i componenti o importa l'intero mese tramite un file Excel strutturato come la tua tabella.</div>
@@ -209,11 +258,14 @@ function admin(){return !!session}
 
 function updateAuthUI(){
   if(admin()){
-    $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
-    $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
+    $('loginOpen').classList.add('hidden');
+    $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.remove('hidden');
+    $('adminPanel').classList.remove('hidden');$('historyPanel').classList.remove('hidden');
+    updateHistoryDropdown();
   } else {
-    $('loginOpen').classList.remove('hidden');$('topLoginForm').classList.add('hidden');
-    $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
+    $('loginOpen').classList.remove('hidden');
+    $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.add('hidden');
+    $('adminPanel').classList.add('hidden');$('historyPanel').classList.add('hidden');
   }
 }
 
@@ -223,11 +275,18 @@ function updatePersonDropdown(){
     people.map(p=>`<option value="${p.id}" ${selectedPersonId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
 }
 
+function updateHistoryDropdown(){
+  const select = $('histPerson');
+  select.innerHTML = '<option value="">Seleziona operatore...</option>' + 
+    people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+}
+
 function render(){
  const dates=datesInView();
  $('period').textContent=view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}`:anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
  
  updatePersonDropdown();
+ if(admin()) updateHistoryDropdown();
  
  const visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
  
@@ -347,6 +406,71 @@ async function removePerson(personId){
  if(selectedPersonId===personId) selectedPersonId='';
  await loadData();
 }
+
+// Preset Date Storico
+$('histPresetMonth').onclick = () => {
+  let end = new Date();
+  let start = addDays(end, -30);
+  $('histEnd').value = iso(end);
+  $('histStart').value = iso(start);$('histPresetMonth').style.background = '#e2ecfe';
+  $('histPresetMonth').style.color = 'var(--blue)';$('histPresetMonth').style.borderColor = '#2457d6';
+  $('histPreset3Months').style.background = '#fff';
+  $('histPreset3Months').style.color = 'var(--ink)';$('histPreset3Months').style.borderColor = 'var(--line)';
+};
+
+$('histPreset3Months').onclick = () => {
+  let end = new Date();
+  let start = addDays(end, -90);
+  $('histEnd').value = iso(end);
+  $('histStart').value = iso(start);$('histPreset3Months').style.background = '#e2ecfe';
+  $('histPreset3Months').style.color = 'var(--blue)';$('histPreset3Months').style.borderColor = '#2457d6';
+  $('histPresetMonth').style.background = '#fff';
+  $('histPresetMonth').style.color = 'var(--ink)';$('histPresetMonth').style.borderColor = 'var(--line)';
+};
+
+// Calcolo Storico
+$('calcHistoryBtn').onclick = () => {
+  const pId = $('histPerson').value;
+  const startStr = $('histStart').value;
+  const endStr = $('histEnd').value;
+
+  if(!pId) { alert('Seleziona un operatore.'); return; }
+  if(!startStr || !endStr) { alert('Seleziona data inizio e data fine.'); return; }
+
+  const selectedTypes = Array.from(document.querySelectorAll('#histShiftCheckboxes input:checked')).map(el => el.value);
+  if(selectedTypes.length === 0) { alert('Seleziona almeno un tipo di turno da analizzare.'); return; }
+
+  const person = people.find(p => p.id === pId);
+  const filteredShifts = shifts.filter(s => {
+    return s.employee_id === pId &&
+           s.shift_date >= startStr &&
+           s.shift_date <= endStr &&
+           selectedTypes.includes(s.shift_type);
+  }).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
+
+  $('histResultContainer').classList.remove('hidden');$('histResultTitle').textContent = `Storico per: ${person ? person.name : 'Operatore'}`;
+  
+  let counts = {};
+  selectedTypes.forEach(t => counts[t] = 0);
+  filteredShifts.forEach(s => { if(counts[s.shift_type] !== undefined) counts[s.shift_type]++; });
+
+  let summaryText = `Periodo: dal ${startStr.split('-').reverse().join('/')} al ${endStr.split('-').reverse().join('/')} | Totale turni trovati: ${filteredShifts.length} <br>`;
+  summaryText += Object.entries(counts).map(([type, count]) => `• ${type}: <b>${count}</b>`).join(' &nbsp;|&nbsp; ');
+  $('histResultSummary').innerHTML = summaryText;
+
+  const tbody = $('histResultTable').querySelector('tbody');
+  if(filteredShifts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted);padding:12px;">Nessun turno trovato in questo intervallo con i filtri selezionati.</td></tr>';
+  } else {
+    tbody.innerHTML = filteredShifts.map(s => {
+      const [y, m, d] = s.shift_date.split('-');
+      const dObj = new Date(y, m - 1, d, 12);
+      const weekday = dObj.toLocaleDateString('it-IT', {weekday: 'long'});
+      const formattedDate = `${d}/${m}/${y}`;
+      return `<tr><td>${formattedDate}</td><td style="text-transform:capitalize;">${weekday}</td><td><span class="tag ${s.shift_type}">${s.shift_type}</span></td></tr>`;
+    }).join('');
+  }
+};
 
 document.querySelectorAll('.stat').forEach(el => {
   el.onclick = () => {
@@ -541,7 +665,7 @@ $('csv').onclick=()=>{
   let dates=datesInView();
   let visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
   let rows=[['Collega',...dates.map(iso)]];
-  visiblePeople.effect(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
+  visiblePeople.forEach(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
   let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
   let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
   a.download='turni-team-'+iso(dates[0])+'.csv';a.click();URL.revokeObjectURL(a.href)
