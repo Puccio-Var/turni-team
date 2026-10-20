@@ -576,6 +576,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => {$('excelFile').click(); };
 
+// IMPORTAZIONE MASSIVA ULTRA-FLESSIBILE
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -597,13 +598,14 @@ $('excelFile').onchange = async (e) => {
         'MAL': 'Malattia', 'MALATTIA': 'Malattia'
       };
 
-      const year = anchor.getFullYear();
+      const currentYear = anchor.getFullYear();
       let upsertList = [];
 
       const monthNames = {
         'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
         'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12,
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+        '01': 1, '02': 2, '03': 3, '04': 4, '05': 5, '06': 6, '07': 7, '08': 8, '09': 9, '10': 10, '11': 11, '12': 12
       };
 
       for(let sheetName of workbook.SheetNames) {
@@ -625,14 +627,22 @@ $('excelFile').onchange = async (e) => {
 
         for(let i=0; i<rows.length; i++) {
           let row = rows[i];
+          if(!row) continue;
           for(let j=0; j<row.length; j++) {
-            let val = String(row[j] || '').trim();
+            let val = String(row[j] || '').trim().replace('.0', '');
             if(val === '1' || val === '01') {
               headerRowIdx = i;
               for(let d=1; d<=31; d++) {
-                let colIdx = j + (d - 1);
-                if(colIdx < row.length) {
-                  dayColumns[d] = colIdx;
+                let targetCol = -1;
+                for(let colSearch = j; colSearch < row.length; colSearch++) {
+                  let cellVal = String(row[colSearch] || '').trim().replace('.0', '');
+                  if(cellVal === String(d) || cellVal === String(d).padStart(2, '0')) {
+                    targetCol = colSearch;
+                    break;
+                  }
+                }
+                if(targetCol !== -1) {
+                  dayColumns[d] = targetCol;
                 }
               }
               break;
@@ -648,10 +658,17 @@ $('excelFile').onchange = async (e) => {
         for(let i = headerRowIdx + 1; i < rows.length; i++) {
           let row = rows[i];
           if(!row || row.length === 0) continue;
+          
           let empNameRaw = String(row[0] || '').trim();
           if(!empNameRaw) continue;
 
-          let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+          // Ricerca intelligente del collega
+          let matchedPerson = people.find(p => {
+            let pName = p.name.toLowerCase().trim();
+            let raw = empNameRaw.toLowerCase().trim();
+            return pName === raw || pName.includes(raw) || raw.includes(pName);
+          });
+
           if(!matchedPerson) continue;
 
           for(let day in dayColumns) {
@@ -662,12 +679,12 @@ $('excelFile').onchange = async (e) => {
             let shiftType = shiftMap[cellVal];
             if(shiftType) {
               let dayNum = parseInt(day);
-              let maxDays = new Date(year, targetMonth, 0).getDate();
+              let maxDays = new Date(currentYear, targetMonth, 0).getDate();
               if(dayNum > maxDays) continue;
 
               let dayStr = String(dayNum).padStart(2, '0');
               let monthStr = String(targetMonth).padStart(2, '0');
-              let shiftDate = `${year}-${monthStr}-${dayStr}`;
+              let shiftDate = `${currentYear}-${monthStr}-${dayStr}`;
               
               upsertList.push({
                 employee_id: matchedPerson.id,
@@ -680,7 +697,7 @@ $('excelFile').onchange = async (e) => {
       }
 
       if(upsertList.length === 0) {
-        setBanner('Nessun turno valido trovato da importare. Verifica la struttura delle colonne (giorni da 1 a 31).', 'error');
+        setBanner('Nessun turno trovato. Verifica che i nomi dei collegi coincidano con quelli a sistema e che la riga contenga i giorni (1, 2, 3...).', 'error');
         setStatus('Nessun dato');
         return;
       }
@@ -694,7 +711,7 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
-      setBanner(`Importazione completata! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
+      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
       await loadData();
 
     } catch (err) {
