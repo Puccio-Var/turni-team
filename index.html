@@ -257,7 +257,7 @@ function datesInView(){if(view==='week'){let s=monday(anchor);return Array.from(
 function getShift(personId,dateIso){return shifts.find(s=>s.employee_id===personId&&s.shift_date===dateIso)?.shift_type||''}
 function admin(){return !!session}
 
-function updateAuthUI(){
+function updateAuthUI(showLoginForm = false){
   if(admin()){
     $('loginOpen').classList.add('hidden');
     $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.remove('hidden');
@@ -266,8 +266,11 @@ function updateAuthUI(){
   } else {
     $('loggedInHeader').classList.add('hidden');
     $('adminPanel').classList.add('hidden');$('historyPanel').classList.add('hidden');
-    // Se il form di login non è aperto esplicitamente, mostra il pulsante di apertura
-    if($('topLoginForm').classList.contains('hidden')){$('loginOpen').classList.remove('hidden');
+    if(showLoginForm){
+      $('loginOpen').classList.add('hidden');
+      $('topLoginForm').classList.remove('hidden');$('email').focus();
+    } else {
+      $('topLoginForm').classList.add('hidden');$('loginOpen').classList.remove('hidden');
     }
   }
 }
@@ -523,14 +526,11 @@ $('resetFilterBtn').onclick = () => {
 $('printBtn').onclick = () => { window.print(); };
 
 $('loginOpen').onclick = () => {
-  $('loginOpen').classList.add('hidden');$('topLoginForm').classList.remove('hidden');
-  $('loggedInHeader').classList.add('hidden');$('email').focus();
+  updateAuthUI(true);
 };
 
-$('loginCancelBtn').onclick = () => {$('topLoginForm').classList.add('hidden');
-  if (!admin()) {
-    $('loginOpen').classList.remove('hidden');
-  }
+$('loginCancelBtn').onclick = () => {
+  updateAuthUI(false);
 };
 
 $('topLoginForm').onsubmit = async (e) => {
