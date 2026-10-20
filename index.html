@@ -216,8 +216,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 </section>
 
 <section class="panel admin hidden" id="adminPanel">
-  <h3>Gestione colleghi e Importazione Massiva (Annuale o Mensile)</h3>
-  <div class="small">Aggiungi i componenti o importa in un solo colpo tutti i mesi dell'anno tramite un file Excel strutturato.</div>
+  <h3>Gestione colleghi e Importazione Turni</h3>
+  <div class="small">Aggiungi i componenti o importa i turni del mese corrente tramite file Excel.</div>
   
   <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
     <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
@@ -227,7 +227,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel (Annuale/Mensile)</button>
+      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
     </div>
   </div>
 </section>
@@ -260,13 +260,15 @@ function admin(){return !!session}
 function updateAuthUI(){
   if(admin()){
     $('loginOpen').classList.add('hidden');
-    $('topLoginForm').classList.remove('hidden');$('loggedInHeader').classList.remove('hidden');
+    $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.remove('hidden');
     $('adminPanel').classList.remove('hidden');$('historyPanel').classList.remove('hidden');
     updateHistoryDropdown();
   } else {
-    $('loginOpen').classList.remove('hidden');
-    $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.add('hidden');
+    $('loggedInHeader').classList.add('hidden');
     $('adminPanel').classList.add('hidden');$('historyPanel').classList.add('hidden');
+    // Se il form di login non è aperto esplicitamente, mostra il pulsante di apertura
+    if($('topLoginForm').classList.contains('hidden')){$('loginOpen').classList.remove('hidden');
+    }
   }
 }
 
@@ -520,6 +522,17 @@ $('resetFilterBtn').onclick = () => {
 
 $('printBtn').onclick = () => { window.print(); };
 
+$('loginOpen').onclick = () => {
+  $('loginOpen').classList.add('hidden');$('topLoginForm').classList.remove('hidden');
+  $('loggedInHeader').classList.add('hidden');$('email').focus();
+};
+
+$('loginCancelBtn').onclick = () => {$('topLoginForm').classList.add('hidden');
+  if (!admin()) {
+    $('loginOpen').classList.remove('hidden');
+  }
+};
+
 $('topLoginForm').onsubmit = async (e) => {
   e.preventDefault();
   const email = $('email').value.trim();
@@ -547,14 +560,6 @@ $('filterPerson').onchange=(e)=>{
   render();
 };
 
-$('loginOpen').onclick=()=>{$('loginOpen').classList.add('hidden');
-  $('topLoginForm').classList.remove('hidden');$('email').focus();
-};
-
-$('loginCancelBtn').onclick=()=>{
-  $('topLoginForm').classList.add('hidden');$('loginOpen').classList.remove('hidden');
-};
-
 $('logout').onclick=async()=>{
   await supabase.auth.signOut();
   session=null;
@@ -576,7 +581,6 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => {$('excelFile').click(); };
 
-// IMPORTAZIONE MASSIVA ULTRA-FLESSIBILE
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -588,7 +592,37 @@ $('excelFile').onchange = async (e) => {
     try {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, {type: 'array'});
-      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+      let headerRowIdx = -1;
+      let dayColumns = {};
+
+      for(let i=0; i<rows.length; i++) {
+        let row = rows[i];
+        for(let j=0; j<row.length; j++) {
+          let val = String(row[j] || '').trim().replace('.0','');
+          if(val === '1' || val === '01') {
+            headerRowIdx = i;
+            for(let d=1; d<=31; d++) {
+              let colIdx = j + (d - 1);
+              if(colIdx < row.length) {
+                dayColumns[d] = colIdx;
+              }
+            }
+            break;
+          }
+        }
+        if(headerRowIdx !== -1) break;
+      }
+
+      if(headerRowIdx === -1) {
+        setBanner('Impossibile trovare la riga dei giorni (1, 2, 3...) nel file Excel.', 'error');
+        setStatus('Errore importazione');
+        return;
+      }
+
       const shiftMap = {
         'M': 'Mattina', 'MATTINA': 'Mattina',
         'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
@@ -598,115 +632,51 @@ $('excelFile').onchange = async (e) => {
         'MAL': 'Malattia', 'MALATTIA': 'Malattia'
       };
 
-      const currentYear = anchor.getFullYear();
+      const year = anchor.getFullYear();
+      const month = anchor.getMonth() + 1;
       let upsertList = [];
 
-      const monthNames = {
-        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
-        'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12,
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
-        '01': 1, '02': 2, '03': 3, '04': 4, '05': 5, '06': 6, '07': 7, '08': 8, '09': 9, '10': 10, '11': 11, '12': 12
-      };
+      for(let i = headerRowIdx + 1; i < rows.length; i++) {
+        let row = rows[i];
+        if(!row || row.length === 0) continue;
+        let empNameRaw = String(row[0] || '').trim();
+        if(!empNameRaw) continue;
 
-      for(let sheetName of workbook.SheetNames) {
-        let sheetMonth = null;
-        let sheetLower = sheetName.toLowerCase().trim();
-        
-        for(let mKey in monthNames) {
-          if(sheetLower.includes(mKey)) {
-            sheetMonth = monthNames[mKey];
-            break;
-          }
-        }
+        let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
 
-        const worksheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+        if(!matchedPerson) continue;
 
-        let headerRowIdx = -1;
-        let dayColumns = {};
+        for(let day in dayColumns) {
+          let colIdx = dayColumns[day];
+          let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+          if(!cellVal) continue;
 
-        for(let i=0; i<rows.length; i++) {
-          let row = rows[i];
-          if(!row) continue;
-          for(let j=0; j<row.length; j++) {
-            let val = String(row[j] || '').trim().replace('.0', '');
-            if(val === '1' || val === '01') {
-              headerRowIdx = i;
-              for(let d=1; d<=31; d++) {
-                let targetCol = -1;
-                for(let colSearch = j; colSearch < row.length; colSearch++) {
-                  let cellVal = String(row[colSearch] || '').trim().replace('.0', '');
-                  if(cellVal === String(d) || cellVal === String(d).padStart(2, '0')) {
-                    targetCol = colSearch;
-                    break;
-                  }
-                }
-                if(targetCol !== -1) {
-                  dayColumns[d] = targetCol;
-                }
-              }
-              break;
-            }
-          }
-          if(headerRowIdx !== -1) break;
-        }
-
-        if(headerRowIdx === -1) continue;
-
-        let targetMonth = sheetMonth || (anchor.getMonth() + 1);
-
-        for(let i = headerRowIdx + 1; i < rows.length; i++) {
-          let row = rows[i];
-          if(!row || row.length === 0) continue;
-          
-          let empNameRaw = String(row[0] || '').trim();
-          if(!empNameRaw) continue;
-
-          // Ricerca intelligente del collega
-          let matchedPerson = people.find(p => {
-            let pName = p.name.toLowerCase().trim();
-            let raw = empNameRaw.toLowerCase().trim();
-            return pName === raw || pName.includes(raw) || raw.includes(pName);
-          });
-
-          if(!matchedPerson) continue;
-
-          for(let day in dayColumns) {
-            let colIdx = dayColumns[day];
-            let cellVal = String(row[colIdx] || '').trim().toUpperCase();
-            if(!cellVal) continue;
-
-            let shiftType = shiftMap[cellVal];
-            if(shiftType) {
-              let dayNum = parseInt(day);
-              let maxDays = new Date(currentYear, targetMonth, 0).getDate();
-              if(dayNum > maxDays) continue;
-
-              let dayStr = String(dayNum).padStart(2, '0');
-              let monthStr = String(targetMonth).padStart(2, '0');
-              let shiftDate = `${currentYear}-${monthStr}-${dayStr}`;
-              
-              upsertList.push({
-                employee_id: matchedPerson.id,
-                shift_date: shiftDate,
-                shift_type: shiftType
-              });
-            }
+          let shiftType = shiftMap[cellVal];
+          if(shiftType) {
+            let dayStr = String(day).padStart(2, '0');
+            let monthStr = String(month).padStart(2, '0');
+            let shiftDate = `${year}-${monthStr}-${dayStr}`;
+            
+            upsertList.push({
+              employee_id: matchedPerson.id,
+              shift_date: shiftDate,
+              shift_type: shiftType
+            });
           }
         }
       }
 
       if(upsertList.length === 0) {
-        setBanner('Nessun turno trovato. Verifica che i nomi dei collegi coincidano con quelli a sistema e che la riga contenga i giorni (1, 2, 3...).', 'error');
+        setBanner('Nessun turno valido trovato da importare per il mese corrente.', 'error');
         setStatus('Nessun dato');
         return;
       }
 
-      setStatus('Salvataggio massivo su Supabase...');
+      setStatus('Salvataggio turni su Supabase...');
       const { error } = await supabase.from('shifts').upsert(upsertList, { onConflict: 'employee_id,shift_date' });
       
       if(error) {
-        setBanner('Errore durante il salvataggio: ' + error.message, 'error');
+        setBanner('Errore durante il salvataggio dei turni: ' + error.message, 'error');
         setStatus('Errore');
         return;
       }
