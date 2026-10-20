@@ -8,7 +8,14 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{background:#14213d;color:white;padding:22px max(16px,calc((100% - 1320px)/2))}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.eyebrow{font-size:11px;letter-spacing:.14em;color:#aebfe4;font-weight:800}.title{font-size:24px;font-weight:800;margin-top:3px}.sub{font-size:13px;color:#c5d0e4;margin-top:4px}
 main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:#f2caca}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08}.stat{padding:14px 16px}.stat small{color:var(--muted);font-weight:700}.stat strong{display:block;font-size:25px;margin-top:5px}.panel{overflow:hidden}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
+
+/* Statistiche avanzate a griglia flessibile */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;padding:14px 16px}
+.stat small{color:var(--muted);font-weight:700;font-size:11px}
+.stat strong{display:block;font-size:22px;margin-top:5px}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;overflow:hidden}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
 .tablewrap{overflow:auto}table{border-collapse:separate;border-spacing:0;width:100%;min-width:820px}th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px;text-align:center}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8faff}th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:180px;background:#fff;z-index:1}th:first-child{background:#f8faff;z-index:2}.date{display:block;margin-top:4px;font-size:14px;color:var(--ink);letter-spacing:0;text-transform:none}.person{display:flex;align-items:center;justify-content:space-between;gap:6px}.person-info{display:flex;align-items:center;gap:8px}.avatar{width:30px;height:30px;border-radius:8px;background:#eaf0ff;color:#2851b0;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0}.person b{font-size:12px}.btn-del{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px}.btn-del:hover{background:#ffebeb;color:var(--red)}.shift{width:100%;max-width:120px;border:0;border-radius:8px;padding:9px 4px;font-weight:750;font-size:11px;appearance:none;text-align:center;background-image:none}.shift:disabled{opacity:1}.shift:not(:disabled){cursor:pointer;outline:1px solid #ccd6e5}.Mattina{background:#fff0d6;color:#8b5100}.Pomeriggio{background:#dceaff;color:#1646a2}.Notte{background:#e9e2ff;color:#5735a4}.Riposo{background:#e9edf2;color:#526071}.Ferie{background:#d9f5e5;color:#176c43}.Malattia{background:#ffe0e0;color:#9b2525}.none{background:#f1f3f6;color:#7c8796}.foot{padding:12px 16px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .admin{margin-top:16px;padding:18px}.admin h3{margin:0 0 8px}.formrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.field{padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;min-width:180px}.field.dark{background:#1e2d4a;border-color:#2e3e5e;color:#fff}.field.dark::placeholder{color:#8ea3c7}.hidden{display:none!important}.small{font-size:12px;color:var(--muted)}#status{font-size:12px;color:var(--muted)}
 .header-auth{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -24,7 +31,6 @@ main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tab
       <div class="sub">Calendario condiviso del team</div>
     </div>
     
-    <!-- Area Login in ALTO -->
     <div id="authContainer">
       <button id="loginOpen" class="btn">Accesso amministratore</button>
       
@@ -44,12 +50,58 @@ main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tab
 </header>
 
 <main>
-<div id="banner" class="banner">Il sito non è ancora collegato al database. Segui il file README per configurare Supabase: finché non è configurato, non inserire dati reali.</div>
-<div class="toolbar"><div class="left"><button class="btn" id="prev">←</button><button class="btn" id="today">Oggi</button><button class="btn" id="next">→</button><h2 id="period">Calendario</h2></div><div class="right"><div class="tabs"><button id="weekTab" class="active">Settimana</button><button id="monthTab">Mese</button></div><button class="btn" id="csv">Esporta CSV</button></div></div>
-<div class="stats"><div class="stat"><small>COLLEGHI</small><strong id="nPeople">—</strong></div><div class="stat"><small>MATTINE NELLA VISTA</small><strong id="nMorning">—</strong></div><div class="stat"><small>NOTTI NELLA VISTA</small><strong id="nNight">—</strong></div><div class="stat"><small>FERIE NELLA VISTA</small><strong id="nFerie">—</strong></div></div>
-<section class="panel"><div class="panelhead"><div><h3>Programmazione</h3><p>Il team può consultare il calendario. Solo l'amministratore autenticato può modificarlo.</p></div><div class="legend"><span class="tag Mattina">Mattina</span><span class="tag Pomeriggio">Pomeriggio</span><span class="tag Notte">Notte</span><span class="tag Riposo">Riposo</span><span class="tag Ferie">Ferie</span></div></div><div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div><div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Non collegato</span></div></section>
+<div id="banner" class="banner">Il sito non è ancora collegato al database. Segui il README per configurare Supabase.</div>
 
-<!-- Pannello gestione colleghi visibile solo dopo l'accesso -->
+<div class="toolbar">
+  <div class="left">
+    <button class="btn" id="prev">←</button>
+    <button class="btn" id="today">Oggi</button>
+    <button class="btn" id="next">→</button>
+    <h2 id="period">Calendario</h2>
+  </div>
+  <div class="right">
+    <!-- Filtro rapido operatore -->
+    <select id="filterPerson" class="field" style="min-width:170px;padding:9px 12px;">
+      <option value="">👤 Tutti gli operatori</option>
+    </select>
+    <div class="tabs">
+      <button id="weekTab" class="active">Settimana</button>
+      <button id="monthTab">Mese</button>
+    </div>
+    <button class="btn" id="csv">Esporta CSV</button>
+  </div>
+</div>
+
+<!-- Contatori e KPI avanzati -->
+<div class="stats">
+  <div class="stat"><small>COLLEGHI</small><strong id="nPeople">—</strong></div>
+  <div class="stat"><small>MATTINE</small><strong id="nMorning">—</strong></div>
+  <div class="stat"><small>POMERIGGI</small><strong id="nAfternoon">—</strong></div>
+  <div class="stat"><small>NOTTI</small><strong id="nNight">—</strong></div>
+  <div class="stat"><small>RIPOSI</small><strong id="nRest">—</strong></div>
+  <div class="stat"><small>FERIE</small><strong id="nFerie">—</strong></div>
+  <div class="stat"><small>MALATTIE</small><strong id="nSick">—</strong></div>
+</div>
+
+<section class="panel">
+  <div class="panelhead">
+    <div>
+      <h3>Programmazione</h3>
+      <p id="panelSub">Il team può consultare il calendario. Filtra per operatore o seleziona un turno per modificarlo.</p>
+    </div>
+    <div class="legend">
+      <span class="tag Mattina">Mattina</span>
+      <span class="tag Pomeriggio">Pomeriggio</span>
+      <span class="tag Notte">Notte</span>
+      <span class="tag Riposo">Riposo</span>
+      <span class="tag Ferie">Ferie</span>
+      <span class="tag Malattia">Malattia</span>
+    </div>
+  </div>
+  <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
+  <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Non collegato</span></div>
+</section>
+
 <section class="panel admin hidden" id="adminPanel">
   <h3>Gestione colleghi</h3>
   <div class="small">Aggiungi i componenti del team. Le modifiche si salvano nel database online.</div>
@@ -68,7 +120,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const configured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('INSERISCI') && !SUPABASE_ANON_KEY.includes('INSERISCI');
 const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia'];
-let people=[], shifts=[], view='week', anchor=new Date(), session=null;
+let people=[], shifts=[], view='week', anchor=new Date(), session=null, selectedPersonId='';
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -91,13 +143,28 @@ function updateAuthUI(){
   }
 }
 
+function updatePersonDropdown(){
+  const select = $('filterPerson');
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">👤 Tutti gli operatori</option>' + 
+    people.map(p=>`<option value="${p.id}" ${currentVal===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+}
+
 function render(){
  const dates=datesInView();
  $('period').textContent=view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}`:anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+ 
+ updatePersonDropdown();
+ 
+ // Filtra i dipendenti in base alla scelta del menu a tendina
+ const visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
+ 
  let head='<tr><th>Collega</th>'+dates.map(d=>`<th>${d.toLocaleDateString('it-IT',{weekday:'short'})}<span class="date">${labelDate(d)}</span></th>`).join('')+'</tr>';
  $('roster').querySelector('thead').innerHTML=head;
- let counts={Mattina:0,Notte:0,Ferie:0};
- $('roster').querySelector('tbody').innerHTML=people.map(p=>`<tr><td>
+ 
+ let counts={Mattina:0,Pomeriggio:0,Notte:0,Riposo:0,Ferie:0,Malattia:0};
+ 
+ $('roster').querySelector('tbody').innerHTML=visiblePeople.map(p=>`<tr><td>
     <div class="person">
       <div class="person-info">
         <div class="avatar">${p.name.trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}</div>
@@ -111,7 +178,14 @@ function render(){
     return `<td><select class="shift ${s||'none'}" data-person="${p.id}" data-date="${iso(d)}" ${admin()?'':'disabled'} aria-label="${escapeHtml(p.name)} ${iso(d)}"><option value="">—</option>${types.map(t=>`<option value="${t}" ${s===t?'selected':''}>${t}</option>`).join('')}</select></td>`
   }).join('')+'</tr>').join('');
  
- $('nPeople').textContent=people.length;$('nMorning').textContent=counts.Mattina;$('nNight').textContent=counts.Notte;$('nFerie').textContent=counts.Ferie;
+ // Aggiornamento contatori dashboard
+ $('nPeople').textContent=visiblePeople.length;
+ $('nMorning').textContent=counts.Mattina;
+ $('nAfternoon').textContent=counts.Pomeriggio;
+ $('nNight').textContent=counts.Notte;
+ $('nRest').textContent=counts.Riposo;
+ $('nFerie').textContent=counts.Ferie;
+ $('nSick').textContent=counts.Malattia;
  
  $('roster').querySelectorAll('select').forEach(el=>el.addEventListener('change',async e=>{if(!admin())return;await setShift(e.target.dataset.person,e.target.dataset.date,e.target.value)}));$('roster').querySelectorAll('.btn-del').forEach(el=>el.addEventListener('click',async e=>{
    const pId=e.target.dataset.removeId;
@@ -127,9 +201,9 @@ function render(){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadData(){
- if(!configured){setBanner('Configurazione mancante: completa il README e inserisci URL e chiave pubblica Supabase nel file index.html.');render();return}
+ if(!configured){setBanner('Configurazione mancante: completa il README e inserisci URL e chiave Supabase.');render();return}
  const [pr,sr]=await Promise.all([supabase.from('employees').select('id,name').eq('active',true).order('name'),supabase.from('shifts').select('employee_id,shift_date,shift_type')]);
- if(pr.error||sr.error){setBanner('Errore nel caricamento dei dati. Controlla la configurazione SQL e le policy RLS. '+(pr.error?.message||sr.error?.message),'error');return}
+ if(pr.error||sr.error){setBanner('Errore nel caricamento dei dati: '+(pr.error?.message||sr.error?.message),'error');return}
  people=pr.data||[];shifts=sr.data||[];
  updateAuthUI();
  render();
@@ -142,7 +216,7 @@ async function setShift(personId,date,type){
  let result;
  if(!type) result=await supabase.from('shifts').delete().eq('employee_id',personId).eq('shift_date',date);
  else result=await supabase.from('shifts').upsert({employee_id:personId,shift_date:date,shift_type:type},{onConflict:'employee_id,shift_date'});
- if(result.error){setBanner('Salvataggio non riuscito: verifica che il tuo account sia autorizzato come amministratore. '+result.error.message,'error');await loadData();return}
+ if(result.error){setBanner('Salvataggio non riuscito: '+result.error.message,'error');await loadData();return}
  const idx=shifts.findIndex(s=>s.employee_id===personId&&s.shift_date===date);
  if(!type){if(idx>=0)shifts.splice(idx,1)}else if(idx>=0)shifts[idx].shift_type=type;else shifts.push({employee_id:personId,shift_date:date,shift_type:type});
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
@@ -151,15 +225,12 @@ async function setShift(personId,date,type){
 async function removePerson(personId){
  setStatus('Rimozione in corso…');
  const {error}=await supabase.from('employees').update({active:false}).eq('id',personId);
- if(error){
-   setBanner('Errore durante la rimozione del collega: '+error.message,'error');
-   return;
- }
+ if(error){setBanner('Errore durante la rimozione del collega: '+error.message,'error');return}
  setBanner('Collega rimosso con successo.','ok');
+ if(selectedPersonId===personId) selectedPersonId='';
  await loadData();
 }
 
-// Gestione login form
 $('topLoginForm').onsubmit = async (e) => {
   e.preventDefault();
   if(!configured) return setBanner('Completa prima la configurazione Supabase.','error');
@@ -169,11 +240,7 @@ $('topLoginForm').onsubmit = async (e) => {
   
   setStatus('Accesso in corso…');
   const {data,error} = await supabase.auth.signInWithPassword({email, password});
-  if(error){
-    setBanner('Accesso non riuscito: ' + error.message, 'error');
-    setStatus('Errore accesso');
-    return;
-  }
+  if(error){setBanner('Accesso non riuscito: ' + error.message, 'error');setStatus('Errore accesso');return;}
   session = data.session;
   updateAuthUI();
   await loadData();
@@ -182,6 +249,11 @@ $('topLoginForm').onsubmit = async (e) => {
 $('prev').onclick=()=>{anchor=view==='week'?addDays(anchor,-7):new Date(anchor.getFullYear(),anchor.getMonth()-1,15,12);render()};
 $('next').onclick=()=>{anchor=view==='week'?addDays(anchor,7):new Date(anchor.getFullYear(),anchor.getMonth()+1,15,12);render()};$('today').onclick=()=>{anchor=new Date();render()};
 $('weekTab').onclick=()=>{view='week';render()};$('monthTab').onclick=()=>{view='month';render()};
+
+$('filterPerson').onchange=(e)=>{
+  selectedPersonId=e.target.value;
+  render();
+};
 
 $('loginOpen').onclick=()=>{$('loginOpen').classList.add('hidden');
   $('topLoginForm').classList.remove('hidden');$('email').focus();
@@ -210,7 +282,15 @@ $('addPersonForm').onsubmit = async (e) => {
   await loadData();
 };
 
-$('csv').onclick=()=>{let ds=datesInView(),rows=[['Collega',...ds.map(iso)]];people.forEach(p=>rows.push([p.name,...ds.map(d=>getShift(p.id,d)||'—')]));let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='turni-team-'+iso(ds[0])+'.csv';a.click();URL.revokeObjectURL(a.href)};
+$('csv').onclick=()=>{
+  let dates=datesInView();
+  let visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
+  let rows=[['Collega',...dates.map(iso)]];
+  visiblePeople.forEach(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,d)||'—')]));
+  let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
+  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='turni-team-'+iso(dates[0])+'.csv';a.click();URL.revokeObjectURL(a.href)
+};
 
 if(configured){
   const {data}=await supabase.auth.getSession();
