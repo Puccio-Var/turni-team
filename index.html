@@ -25,7 +25,7 @@ th.selected-day,td.selected-day{background:#edf3ff!important}
 th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:180px;background:#fff;z-index:1;cursor:default}th:first-child{background:#f8faff;z-index:2}.date{display:block;margin-top:2px;font-size:12px;color:var(--ink);letter-spacing:0;text-transform:none;pointer-events:none}
 .person{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .person-info{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px;border-radius:6px;transition:background .15s;user-select:none;width:100%}
-.person-info:hover{background:#f0f4fa}
+.person-info:hover{background:transparent}
 .person-info.active-person{background:#e2ecfe;outline:1px solid #2457d6}
 .avatar{width:26px;height:26px;border-radius:6px;background:#eaf0ff;color:#2851b0;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0;pointer-events:none}.person b{font-size:11px;pointer-events:none}.btn-del{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px}.btn-del:hover{background:#ffebeb;color:var(--red)}
 
@@ -38,12 +38,12 @@ table.month-view th { font-size: 10px; }
 table.month-view .date { font-size: 11px; }
 table.month-view th:first-child, table.month-view td:first-child { min-width: 150px; }
 
-/* EFFETTO HOVER SULLA RIGA */
+/* CORRETTO: EFFETTO HOVER SULL'INTERA RIGA (COLONNA FISSA COMPRESA) */
 #roster tbody tr:hover td {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 #roster tbody tr:hover td:first-child {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 
 .Mattina{background:#d5e8f8;color:#1d4ed8}
@@ -79,7 +79,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   .none { background: #fff !important; color: #ccc !important; }
 }
 
-@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%;justify-content:space-between}}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%,{justify-content:space-between}}
 </style>
 </head>
 <body>
@@ -541,7 +541,7 @@ $('csv').onclick=()=>{
   let dates=datesInView();
   let visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
   let rows=[['Collega',...dates.map(iso)]];
-  visiblePeople.forEach(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
+  visiblePeople.effect(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
   let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
   let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
   a.download='turni-team-'+iso(dates[0])+'.csv';a.click();URL.revokeObjectURL(a.href)
