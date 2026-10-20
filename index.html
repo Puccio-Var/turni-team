@@ -27,8 +27,8 @@ main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tab
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 // Inserisci qui URL e publishable/anon key del tuo progetto Supabase (mai la service_role key).
-const SUPABASE_URL = https://puccio-var.github.io/turni-team/;
-const SUPABASE_ANON_KEY = 'INSERISCI_PUBLISHABLE_KEY';
+const SUPABASE_URL = 'https://gwyalnqzvuzrewhupgjv.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_GyjioCQlOTY3nsUUptlnMg_f8GrEbZC';
 const configured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('INSERISCI') && !SUPABASE_ANON_KEY.includes('INSERISCI');
 const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia'];
