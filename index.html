@@ -3,17 +3,15 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Turni Team Helpdesk</title>
+<!-- Libreria SheetJS per leggere i file Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#f4f7fb;--ink:#182230;--muted:#687588;--line:#e3e9f1;--blue:#2457d6;--card:#fff;--red:#d32f2f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{background:#14213d;color:white;padding:22px max(24px,calc((100% - 98%) / 2))}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.eyebrow{font-size:11px;letter-spacing:.14em;color:#aebfe4;font-weight:800}.title{font-size:24px;font-weight:800;margin-top:3px}.sub{font-size:13px;color:#c5d0e4;margin-top:4px}
-
-/* Contenitore principale allargato per occupare quasi tutto lo schermo */
 main{max-width:98%;margin:24px auto;padding:0 12px}
-
 .toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:#f2caca}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
 
-/* Statistiche giornaliere */
 .stats-header{font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;padding:12px 14px}
@@ -33,7 +31,6 @@ th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:1
 .shift{width:100%;max-width:110px;border:0;border-radius:6px;padding:6px 2px;font-weight:750;font-size:11px;appearance:none;text-align:center;background-image:none}
 .shift:disabled{opacity:1}.shift:not(:disabled){cursor:pointer;outline:1px solid #ccd6e5}
 
-/* Regole specifiche per la visualizzazione MESE (compatta ed estesa) */
 table.month-view th, table.month-view td { padding: 5px 2px; }
 table.month-view .shift { font-size: 10px; padding: 6px 1px; border-radius: 4px; max-width: 55px; }
 table.month-view th { font-size: 10px; }
@@ -95,13 +92,11 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
 </div>
 
-<!-- Header del contatore del giorno -->
 <div class="stats-header">
   📅 Situazione giornaliera: <span id="selectedDayLabel" style="text-decoration:underline;">Oggi</span> 
   <span class="small">(clicca su una data in tabella per cambiarla)</span>
 </div>
 
-<!-- Contatori del singolo giorno -->
 <div class="stats">
   <div class="stat"><small>MATTINA</small><strong id="nMorning">0</strong></div>
   <div class="stat"><small>POMERIGGIO</small><strong id="nAfternoon">0</strong></div>
@@ -130,13 +125,22 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Non collegato</span></div>
 </section>
 
+<!-- Pannello gestione colleghi e Importazione Excel -->
 <section class="panel admin hidden" id="adminPanel">
-  <h3>Gestione colleghi</h3>
-  <div class="small">Aggiungi i componenti del team. Le modifiche si salvano nel database online.</div>
-  <form id="addPersonForm" class="formrow">
-    <input id="newName" class="field" placeholder="Nome e cognome" required>
-    <button type="submit" id="addPerson" class="btn primary">Aggiungi collega</button>
-  </form>
+  <h3>Gestione colleghi e Importazione</h3>
+  <div class="small">Aggiungi i componenti o importa l'intero mese tramite un file Excel strutturato come la tua tabella.</div>
+  
+  <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
+    <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
+      <input id="newName" class="field" placeholder="Nome e cognome" required>
+      <button type="submit" id="addPerson" class="btn primary">Aggiungi collega</button>
+    </form>
+    
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none">
+      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
+    </div>
+  </div>
 </section>
 </main>
 
@@ -258,7 +262,7 @@ function render(){
  $('weekTab').classList.toggle('active',view==='week');$('monthTab').classList.toggle('active',view==='month');
 }
 
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;u0027'}[c]))}
 
 async function loadData(){
  if(!configured){setBanner('Configurazione mancante: completa il README e inserisci URL e chiave Supabase.');render();return}
@@ -290,6 +294,131 @@ async function removePerson(personId){
  if(selectedPersonId===personId) selectedPersonId='';
  await loadData();
 }
+
+// Logica di Importazione Excel
+$('importExcelBtn').onclick = () => {$('excelFile').click(); };
+
+$('excelFile').onchange = async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
+
+  setStatus('Lettura file Excel in corso...');
+  const reader = new FileReader();
+  reader.onload = async function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+      // Cerca la riga dei giorni (1, 2, 3...) e l'anno/mese corrente
+      let headerRowIdx = -1;
+      let dayColumns = {}; // mappa colonnaIndex -> giorno del mese
+
+      for(let i=0; i<rows.length; i++) {
+        let row = rows[i];
+        let foundDays = 0;
+        for(let j=0; j<row.length; j++) {
+          let val = row[j];
+          if(val === 1 || val === '1') {
+            // Trovata la colonna del giorno 1
+            headerRowIdx = i;
+            // Mappa le colonne successive per i giorni 1, 2, 3...
+            for(let d=1; d<=31; d++) {
+              let colIdx = j + (d - 1);
+              if(colIdx < row.length) {
+                dayColumns[d] = colIdx;
+              }
+            }
+            break;
+          }
+        }
+        if(headerRowIdx !== -1) break;
+      }
+
+      if(headerRowIdx === -1) {
+        setBanner('Impossibile trovare la riga dei giorni (1, 2, 3...) nel file Excel. Assicurati che corrisponda al formato.', 'error');
+        setStatus('Errore importazione');
+        return;
+      }
+
+      // Mappa delle lettere Excel ai turni ufficiali
+      const shiftMap = {
+        'M': 'Mattina',
+        'P': 'Pomeriggio',
+        'N': 'Notte',
+        'R': 'Riposo',
+        'F': 'Ferie',
+        'MAL': 'Malattia',
+        'MALATTIA': 'Malattia'
+      };
+
+      const year = anchor.getFullYear();
+      const month = anchor.getMonth() + 1; // Mese corrente visualizzato
+      let upsertList = [];
+
+      // Leggi le righe dei dipendenti sotto l'intestazione
+      for(let i = headerRowIdx + 1; i < rows.length; i++) {
+        let row = rows[i];
+        if(!row || row.length === 0) continue;
+        let empNameRaw = String(row[0] || '').trim();
+        if(!empNameRaw) continue;
+
+        // Cerca il collega nel database (confronto approssimativo o esatto)
+        let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+
+        if(!matchedPerson) continue; // Salta se il dipendente non esiste nel database
+
+        // Leggi i turni per ogni giorno del mese
+        for(let day in dayColumns) {
+          let colIdx = dayColumns[day];
+          let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+          if(!cellVal) continue;
+
+          let shiftType = shiftMap[cellVal];
+          if(shiftType) {
+            let dayStr = String(day).padStart(2, '0');
+            let monthStr = String(month).padStart(2, '0');
+            let shiftDate = `${year}-${monthStr}-${dayStr}`;
+            
+            upsertList.push({
+              employee_id: matchedPerson.id,
+              shift_date: shiftDate,
+              shift_type: shiftType
+            });
+          }
+        }
+      }
+
+      if(upsertList.length === 0) {
+        setBanner('Nessun turno valido trovato da importare per il mese corrente.', 'error');
+        setStatus('Nessun dato');
+        return;
+      }
+
+      setStatus('Salvataggio turni su Supabase...');
+      const { error } = await supabase.from('shifts').upsert(upsertList, { onConflict: 'employee_id,shift_date' });
+      
+      if(error) {
+        setBanner('Errore durante il salvataggio dei turni: ' + error.message, 'error');
+        setStatus('Errore');
+        return;
+      }
+
+      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
+      await loadData();
+
+    } catch (err) {
+      setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
+      setStatus('Errore file');
+    } finally {
+      e.target.value = ''; // Reset input file
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
 
 $('topLoginForm').onsubmit = async (e) => {
   e.preventDefault();
