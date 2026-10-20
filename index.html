@@ -38,7 +38,6 @@ table.month-view th { font-size: 10px; }
 table.month-view .date { font-size: 11px; }
 table.month-view th:first-child, table.month-view td:first-child { min-width: 150px; }
 
-/* Colori basati sulla tabella Excel */
 .Mattina{background:#d5e8f8;color:#1d4ed8}
 .Pomeriggio{background:#d1fae5;color:#065f46}
 .Notte{background:#374151;color:#ffffff}
@@ -55,7 +54,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 /* Chatbot IA Widget */
 #aiWidget{position:fixed;bottom:20px;right:20px;z-index:9999}
-#aiChatBox{width:360px;height:450px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 40px #0002;display:flex;flex-direction:column;overflow:hidden;margin-bottom:10px}
+#aiChatBox{width:360px;height:480px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 40px #0002;display:flex;flex-direction:column;overflow:hidden;margin-bottom:10px}
 #aiChatHeader{background:#14213d;color:#fff;padding:12px 16px;font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
 #aiChatBody{flex:1;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;font-size:13px;background:#f9fbfd}
 .chat-msg{padding:8px 12px;border-radius:10px;max-width:85%;line-height:1.4}
@@ -183,26 +182,27 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
     </div>
   </div>
-
-  <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px;">
-    <label class="small" style="font-weight:700;">Chiave API Google Gemini (Gratuita):</label>
-    <div style="display:flex;gap:8px;margin-top:4px;">
-      <input id="geminiApiKey" class="field" type="password" placeholder="Incolla la tua Gemini API Key" style="flex:1;">
-      <button type="button" id="saveApiKeyBtn" class="btn">Salva Chiave</button>
-    </div>
-    <div class="small" style="margin-top:4px;">Puoi crearne una gratis su <a href="https://aistudio.google.com" target="_blank">Google AI Studio</a>.</div>
-  </div>
 </section>
 
-<!-- Widget Chatbot IA (Visibile solo per Admin) -->
+<!-- Widget Chatbot IA (Visibile solo per Admin) con configurazione chiave integrata -->
 <div id="aiWidget" class="hidden">
   <div id="aiChatBox" class="hidden">
     <div id="aiChatHeader">
       <span>🤖 Assistente IA Turni</span>
       <button id="closeAiChatBtn" style="background:transparent;border:0;color:#fff;cursor:pointer;font-size:16px;">✕</button>
     </div>
+    
+    <!-- Sezione configurazione chiave se assente -->
+    <div id="aiApiKeySection" style="padding:10px;background:#fff8e6;border-bottom:1px solid #f0dfb4;font-size:11px;">
+      <div style="font-weight:700;margin-bottom:4px;color:#765816;">🔑 Inserisci la tua Gemini API Key:</div>
+      <div style="display:flex;gap:4px;">
+        <input id="geminiApiKeyInput" class="field" type="password" placeholder="Incolla qui la chiave..." style="flex:1;padding:6px;font-size:11px;">
+        <button id="saveApiKeyBtn" class="btn primary" style="padding:6px 10px;font-size:11px;">Salva</button>
+      </div>
+    </div>
+
     <div id="aiChatBody">
-      <div class="chat-msg ai">Ciao Admin! Dimmi cosa desideri fare o chiedere sui turni del team.</div>
+      <div class="chat-msg ai">Ciao Admin! Configura la tua chiave API qui sopra (se è la prima volta) e dimmi che modifiche vuoi fare ai turni.</div>
     </div>
     <form id="aiChatForm" id="aiChatInputRow">
       <input id="aiChatInput" class="field" placeholder="Es: Sposta Mario al pomeriggio domani..." style="flex:1;padding:8px 10px;font-size:12px;" required>
@@ -231,7 +231,7 @@ const $=id=>document.getElementById(id);
 const addDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
 const monday=d=>{let x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
 const labelDate=d=>d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
-function setBanner(text,kind=''){ $('banner').textContent=text;$('banner').className='banner '+kind; }
+function setBanner(text,kind=''){ $('banner').textContent=text;$('banner'].className='banner '+kind; }
 function setStatus(t){$('status').textContent=t}
 function datesInView(){if(view==='week'){let s=monday(anchor);return Array.from({length:7},(_,i)=>addDays(s,i))}let first=new Date(anchor.getFullYear(),anchor.getMonth(),1,12),last=new Date(anchor.getFullYear(),anchor.getMonth()+1,0,12);return Array.from({length:last.getDate()},(_,i)=>addDays(first,i))}
 function getShift(personId,dateIso){return shifts.find(s=>s.employee_id===personId&&s.shift_date===dateIso)?.shift_type||''}
@@ -399,14 +399,19 @@ $('resetFilterBtn').onclick = () => {
 
 $('printBtn').onclick = () => { window.print(); };
 
-// Gestione Chiave API Gemini
+// Gestione Chiave API Gemini direttamente nel pannello Chat
 const savedKey = localStorage.getItem('gemini_api_key') || '';
-if(savedKey) $('geminiApiKey').value = savedKey;
+if(savedKey) {
+  $('geminiApiKeyInput').value = savedKey;
+  $('aiApiKeySection').classList.add('hidden'); // Nascondi se già inserita
+}
 
 $('saveApiKeyBtn').onclick = () => {
-  const key = $('geminiApiKey').value.trim();
+  const key = $('geminiApiKeyInput').value.trim();
+  if(!key) return alert('Inserisci una chiave valida.');
   localStorage.setItem('gemini_api_key', key);
-  alert('Chiave API Gemini salvata con successo nel browser!');
+  $('aiApiKeySection').classList.add('hidden');
+  alert('Chiave API salvata nel browser!');
 };
 
 // Toggle Chatbot
@@ -420,19 +425,18 @@ $('aiChatForm').onsubmit = async (e) => {
   const userQuery = inputEl.value.trim();
   if(!userQuery) return;
 
-  const apiKey = localStorage.getItem('gemini_api_key') || $('geminiApiKey').value.trim();
+  const apiKey = localStorage.getItem('gemini_api_key') || $('geminiApiKeyInput').value.trim();
   if(!apiKey) {
-    alert('Per favore inserisci e salva prima la tua Gemini API Key gratuita nel pannello Amministratore in basso.');
+    alert('Inserisci prima la tua Gemini API Key nella sezione in alto della chat.');
+    $('aiApiKeySection').classList.remove('hidden');
     return;
   }
 
-  // Aggiungi messaggio utente
   const body = $('aiChatBody');
   body.innerHTML += `<div class="chat-msg user">${escapeHtml(userQuery)}</div>`;
   inputEl.value = '';
   body.scrollTop = body.scrollHeight;
 
-  // Messaggio caricamento
   const loadingId = 'loading_' + Date.now();
   body.innerHTML += `<div class="chat-msg ai" id="${loadingId}">Elaborazione in corso...</div>`;
   body.scrollTop = body.scrollHeight;
