@@ -215,8 +215,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 </section>
 
 <section class="panel admin hidden" id="adminPanel">
-  <h3>Gestione colleghi e Importazione</h3>
-  <div class="small">Aggiungi i componenti o importa l'intero mese tramite un file Excel strutturato come la tua tabella.</div>
+  <h3>Gestione colleghi e Importazione Massiva (Annuale o Mensile)</h3>
+  <div class="small">Aggiungi i componenti o importa in un solo colpo tutti i mesi dell'anno tramite un file Excel strutturato.</div>
   
   <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
     <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
@@ -226,7 +226,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
+      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel (Annuale/Mensile)</button>
     </div>
   </div>
 </section>
@@ -237,6 +237,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const SUPABASE_URL = 'https://gwyalnqzvuzrewhupgjv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3eWFsbnF6dnV6cmV3aHVwZ2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0ODQwNzUsImV4cCI6MjEwODA2MDA3NX0.cWQ80Kwh6MC5OSvQJPeS_s6TeIo7Tc283gqawwfLwiI';
+
 const configured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('INSERISCI') && !SUPABASE_ANON_KEY.includes('INSERISCI');
 const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia'];
@@ -377,7 +378,7 @@ function render(){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadData(){
- if(!configured){setBanner('Configurazione mancante: completa il README e inserisci URL e chiave Supabase.');render();return}
+ if(!configured){setBanner('Configurazione mancante: inserisci URL e chiave Supabase nel codice.');render();return}
  const [pr,sr]=await Promise.all([supabase.from('employees').select('id,name').eq('active',true).order('name'),supabase.from('shifts').select('employee_id,shift_date,shift_type')]);
  if(pr.error||sr.error){setBanner('Errore nel caricamento dei dati: '+(pr.error?.message||sr.error?.message),'error');return}
  people=pr.data||[];shifts=sr.data||[];
@@ -420,7 +421,7 @@ $('histPresetMonth').onclick = () => {
 
 $('histPresetYear').onclick = () => {
   let now = new Date();
-  let start = new Date(now.getFullYear(), 0, 1); // 1 Gennaio dell'anno corrente
+  let start = new Date(now.getFullYear(), 0, 1);
   $('histEnd').value = iso(now);
   $('histStart').value = iso(start);$('histPresetYear').style.background = '#e2ecfe';
   $('histPresetYear').style.color = 'var(--blue)';$('histPresetYear').style.borderColor = '#2457d6';
@@ -493,7 +494,7 @@ $('printBtn').onclick = () => { window.print(); };
 
 $('topLoginForm').onsubmit = async (e) => {
   e.preventDefault();
-  if(!configured) return setBanner('Completa prima la configurazione Supabase.','error');
+  if(!configured) return setBanner('Inserisci prima le credenziali Supabase nel codice.','error');
   const email = $('email').value.trim();
   const password = $('password').value;
   if(!email || !password) return;
@@ -548,6 +549,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => {$('excelFile').click(); };
 
+// IMPORTAZIONE MASSIVA (SUPPORTO MULTI-MESE / ANNUALE)
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -559,96 +561,114 @@ $('excelFile').onchange = async (e) => {
     try {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, {type: 'array'});
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-
-      let headerRowIdx = -1;
-      let dayColumns = {};
-
-      for(let i=0; i<rows.length; i++) {
-        let row = rows[i];
-        for(let j=0; j<row.length; j++) {
-          if(row[j] === 1 || row[j] === '1') {
-            headerRowIdx = i;
-            for(let d=1; d<=31; d++) {
-              let colIdx = j + (d - 1);
-              if(colIdx < row.length) {
-                dayColumns[d] = colIdx;
-              }
-            }
-            break;
-          }
-        }
-        if(headerRowIdx !== -1) break;
-      }
-
-      if(headerRowIdx === -1) {
-        setBanner('Impossibile trovare la riga dei giorni (1, 2, 3...) nel file Excel.', 'error');
-        setStatus('Errore importazione');
-        return;
-      }
-
+      
       const shiftMap = {
-        'M': 'Mattina',
-        'P': 'Pomeriggio',
-        'N': 'Notte',
-        'R': 'Riposo',
-        'F': 'Ferie',
-        'MAL': 'Malattia',
-        'MALATTIA': 'Malattia'
+        'M': 'Mattina', 'MATTINA': 'Mattina',
+        'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
+        'N': 'Notte', 'NOTTE': 'Notte',
+        'R': 'Riposo', 'RIPOSO': 'Riposo',
+        'F': 'Ferie', 'FERIE': 'Ferie',
+        'MAL': 'Malattia', 'MALATTIA': 'Malattia'
       };
 
       const year = anchor.getFullYear();
-      const month = anchor.getMonth() + 1;
       let upsertList = [];
 
-      for(let i = headerRowIdx + 1; i < rows.length; i++) {
-        let row = rows[i];
-        if(!row || row.length === 0) continue;
-        let empNameRaw = String(row[0] || '').trim();
-        if(!empNameRaw) continue;
+      const monthNames = {
+        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
+        'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12,
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+      };
 
-        let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+      for(let sheetName of workbook.SheetNames) {
+        let sheetMonth = null;
+        let sheetLower = sheetName.toLowerCase().trim();
+        
+        for(let mKey in monthNames) {
+          if(sheetLower.includes(mKey)) {
+            sheetMonth = monthNames[mKey];
+            break;
+          }
+        }
 
-        if(!matchedPerson) continue;
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-        for(let day in dayColumns) {
-          let colIdx = dayColumns[day];
-          let cellVal = String(row[colIdx] || '').trim().toUpperCase();
-          if(!cellVal) continue;
+        let headerRowIdx = -1;
+        let dayColumns = {};
 
-          let shiftType = shiftMap[cellVal];
-          if(shiftType) {
-            let dayStr = String(day).padStart(2, '0');
-            let monthStr = String(month).padStart(2, '0');
-            let shiftDate = `${year}-${monthStr}-${dayStr}`;
-            
-            upsertList.push({
-              employee_id: matchedPerson.id,
-              shift_date: shiftDate,
-              shift_type: shiftType
-            });
+        for(let i=0; i<rows.length; i++) {
+          let row = rows[i];
+          for(let j=0; j<row.length; j++) {
+            let val = String(row[j] || '').trim();
+            if(val === '1' || val === '01') {
+              headerRowIdx = i;
+              for(let d=1; d<=31; d++) {
+                let colIdx = j + (d - 1);
+                if(colIdx < row.length) {
+                  dayColumns[d] = colIdx;
+                }
+              }
+              break;
+            }
+          }
+          if(headerRowIdx !== -1) break;
+        }
+
+        if(headerRowIdx === -1) continue;
+
+        let targetMonth = sheetMonth || (anchor.getMonth() + 1);
+
+        for(let i = headerRowIdx + 1; i < rows.length; i++) {
+          let row = rows[i];
+          if(!row || row.length === 0) continue;
+          let empNameRaw = String(row[0] || '').trim();
+          if(!empNameRaw) continue;
+
+          let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+          if(!matchedPerson) continue;
+
+          for(let day in dayColumns) {
+            let colIdx = dayColumns[day];
+            let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+            if(!cellVal) continue;
+
+            let shiftType = shiftMap[cellVal];
+            if(shiftType) {
+              let dayNum = parseInt(day);
+              let maxDays = new Date(year, targetMonth, 0).getDate();
+              if(dayNum > maxDays) continue;
+
+              let dayStr = String(dayNum).padStart(2, '0');
+              let monthStr = String(targetMonth).padStart(2, '0');
+              let shiftDate = `${year}-${monthStr}-${dayStr}`;
+              
+              upsertList.push({
+                employee_id: matchedPerson.id,
+                shift_date: shiftDate,
+                shift_type: shiftType
+              });
+            }
           }
         }
       }
 
       if(upsertList.length === 0) {
-        setBanner('Nessun turno valido trovato da importare per il mese corrente.', 'error');
+        setBanner('Nessun turno valido trovato da importare. Verifica la struttura delle colonne (giorni da 1 a 31).', 'error');
         setStatus('Nessun dato');
         return;
       }
 
-      setStatus('Salvataggio turni su Supabase...');
+      setStatus('Salvataggio massivo su Supabase...');
       const { error } = await supabase.from('shifts').upsert(upsertList, { onConflict: 'employee_id,shift_date' });
       
       if(error) {
-        setBanner('Errore durante il salvataggio dei turni: ' + error.message, 'error');
+        setBanner('Errore durante il salvataggio: ' + error.message, 'error');
         setStatus('Errore');
         return;
       }
 
-      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
+      setBanner(`Importazione completata! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
       await loadData();
 
     } catch (err) {
