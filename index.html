@@ -38,6 +38,14 @@ table.month-view th { font-size: 10px; }
 table.month-view .date { font-size: 11px; }
 table.month-view th:first-child, table.month-view td:first-child { min-width: 150px; }
 
+/* EFFETTO HOVER SULLA RIGA */
+#roster tbody tr:hover td {
+  background-color: #f8fafc !important;
+}
+#roster tbody tr:hover td:first-child {
+  background-color: #f8fafc !important;
+}
+
 .Mattina{background:#d5e8f8;color:#1d4ed8}
 .Pomeriggio{background:#d1fae5;color:#065f46}
 .Notte{background:#374151;color:#ffffff}
@@ -142,7 +150,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead">
     <div>
       <h3>Programmazione Turni - Team Helpdesk</h3>
-      <p id="panelSub">Clicca sui contatori in alto per filtrare i turni o sul nome di un collega per isolarlo.</p>
+      <p id="panelSub">Passa con il mouse sulle righe per evidenziarle, clicca sui contatori per filtrare i turni.</p>
     </div>
     <div class="legend">
       <span class="tag Mattina">Mattina</span>
