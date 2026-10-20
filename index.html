@@ -184,7 +184,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
         <label class="small" style="display:block;font-weight:700;margin-bottom:4px;">Data Fine:</label>
         <input type="date" id="histEnd" class="field" style="min-width:150px;">
       </div>
-      <button type="button" id="histPresetMonth" class="btn" style="background:#e2ecfe;color:var(--blue);border-color:#2457d6;">Ultimi 30 giorni</button>
+      <button type="button" id="histPresetCurrentMonth" class="btn" style="background:#e2ecfe;color:var(--blue);border-color:#2457d6;">Mese corrente</button>
+      <button type="button" id="histPresetLastMonth" class="btn">Lo scorso mese</button>
       <button type="button" id="histPresetYear" class="btn">Quest'anno</button>
       <button type="button" id="calcHistoryBtn" class="btn primary">Genera Storico</button>
     </div>
@@ -408,25 +409,45 @@ async function removePerson(personId){
  await loadData();
 }
 
-// Preset Date Storico
-$('histPresetMonth').onclick = () => {
-  let end = new Date();
-  let start = addDays(end, -30);
-  $('histEnd').value = iso(end);
-  $('histStart').value = iso(start);$('histPresetMonth').style.background = '#e2ecfe';
-  $('histPresetMonth').style.color = 'var(--blue)';$('histPresetMonth').style.borderColor = '#2457d6';
-  $('histPresetYear').style.background = '#fff';
+function resetPresetStyles() {
+  $('histPresetCurrentMonth').style.background = '#fff';
+  $('histPresetCurrentMonth').style.color = 'var(--ink)';
+  $('histPresetCurrentMonth').style.borderColor = 'var(--line)';$('histPresetLastMonth').style.background = '#fff';
+  $('histPresetLastMonth').style.color = 'var(--ink)';
+  $('histPresetLastMonth').style.borderColor = 'var(--line)';$('histPresetYear').style.background = '#fff';
   $('histPresetYear').style.color = 'var(--ink)';$('histPresetYear').style.borderColor = 'var(--line)';
+}
+
+function setActivePreset(btnEl) {
+  resetPresetStyles();
+  btnEl.style.background = '#e2ecfe';
+  btnEl.style.color = 'var(--blue)';
+  btnEl.style.borderColor = '#2457d6';
+}
+
+// Preset Mese Corrente (Dal 1° del mese corrente a oggi/fine mese)
+$('histPresetCurrentMonth').onclick = () => {
+  let now = new Date();
+  let start = new Date(now.getFullYear(), now.getMonth(), 1);
+  $('histStart').value = iso(start);$('histEnd').value = iso(now);
+  setActivePreset($('histPresetCurrentMonth'));
 };
 
+// Preset Lo Scorso Mese (Dal 1° all'ultimo giorno del mese scorso)
+$('histPresetLastMonth').onclick = () => {
+  let now = new Date();
+  let start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  let end = new Date(now.getFullYear(), now.getMonth(), 0);
+  $('histStart').value = iso(start);$('histEnd').value = iso(end);
+  setActivePreset($('histPresetLastMonth'));
+};
+
+// Preset Quest'anno (Dal 1° Gennaio ad oggi)
 $('histPresetYear').onclick = () => {
   let now = new Date();
   let start = new Date(now.getFullYear(), 0, 1);
-  $('histEnd').value = iso(now);
-  $('histStart').value = iso(start);$('histPresetYear').style.background = '#e2ecfe';
-  $('histPresetYear').style.color = 'var(--blue)';$('histPresetYear').style.borderColor = '#2457d6';
-  $('histPresetMonth').style.background = '#fff';
-  $('histPresetMonth').style.color = 'var(--ink)';$('histPresetMonth').style.borderColor = 'var(--line)';
+  $('histStart').value = iso(start);$('histEnd').value = iso(now);
+  setActivePreset($('histPresetYear'));
 };
 
 // Calcolo Storico
@@ -457,249 +478,3 @@ $('calcHistoryBtn').onclick = () => {
 
   let summaryText = `Periodo: dal ${startStr.split('-').reverse().join('/')} al ${endStr.split('-').reverse().join('/')} | Totale turni trovati: ${filteredShifts.length} <br>`;
   summaryText += Object.entries(counts).map(([type, count]) => `• ${type}: <b>${count}</b>`).join(' &nbsp;|&nbsp; ');
-  $('histResultSummary').innerHTML = summaryText;
-
-  const tbody = $('histResultTable').querySelector('tbody');
-  if(filteredShifts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted);padding:12px;">Nessun turno trovato in questo intervallo con i filtri selezionati.</td></tr>';
-  } else {
-    tbody.innerHTML = filteredShifts.map(s => {
-      const [y, m, d] = s.shift_date.split('-');
-      const dObj = new Date(y, m - 1, d, 12);
-      const weekday = dObj.toLocaleDateString('it-IT', {weekday: 'long'});
-      const formattedDate = `${d}/${m}/${y}`;
-      return `<tr><td>${formattedDate}</td><td style="text-transform:capitalize;">${weekday}</td><td><span class="tag ${s.shift_type}">${s.shift_type}</span></td></tr>`;
-    }).join('');
-  }
-};
-
-document.querySelectorAll('.stat').forEach(el => {
-  el.onclick = () => {
-    const shiftType = el.getAttribute('data-shift-filter');
-    if(activeShiftFilter === shiftType) {
-      activeShiftFilter = null;
-    } else {
-      activeShiftFilter = shiftType;
-    }
-    render();
-  };
-});
-
-$('resetFilterBtn').onclick = () => {
-  activeShiftFilter = null;
-  render();
-};
-
-$('printBtn').onclick = () => { window.print(); };
-
-$('topLoginForm').onsubmit = async (e) => {
-  e.preventDefault();
-  if(!configured) return setBanner('Inserisci prima le credenziali Supabase nel codice.','error');
-  const email = $('email').value.trim();
-  const password = $('password').value;
-  if(!email || !password) return;
-  
-  setStatus('Accesso in corso…');
-  const {data,error} = await supabase.auth.signInWithPassword({email, password});
-  if(error){setBanner('Accesso non riuscito: ' + error.message, 'error');setStatus('Errore accesso');return;}
-  session = data.session;
-  updateAuthUI();
-  await loadData();
-};
-
-$('prev').onclick=()=>{anchor=view==='week'?addDays(anchor,-7):new Date(anchor.getFullYear(),anchor.getMonth()-1,15,12);render()};
-$('next').onclick=()=>{anchor=view==='week'?addDays(anchor,7):new Date(anchor.getFullYear(),anchor.getMonth()+1,15,12);render()};$('today').onclick=()=>{
-  anchor=new Date();
-  selectedDateIso = iso(new Date());
-  render();
-};
-$('weekTab').onclick=()=>{view='week';render()};$('monthTab').onclick=()=>{view='month';render()};
-
-$('filterPerson').onchange=(e)=>{
-  selectedPersonId=e.target.value;
-  render();
-};
-
-$('loginOpen').onclick=()=>{$('loginOpen').classList.add('hidden');
-  $('topLoginForm').classList.remove('hidden');$('email').focus();
-};
-
-$('loginCancelBtn').onclick=()=>{
-  $('topLoginForm').classList.add('hidden');$('loginOpen').classList.remove('hidden');
-};
-
-$('logout').onclick=async()=>{
-  await supabase.auth.signOut();
-  session=null;
-  $('email').value='';$('password').value='';
-  updateAuthUI();
-  await loadData();
-};
-
-$('addPersonForm').onsubmit = async (e) => {
-  e.preventDefault();
-  let name=$('newName').value.trim();
-  if(!name)return;
-  if(!admin())return setBanner('Devi accedere come amministratore.','error');
-  const {error}=await supabase.from('employees').insert({name});
-  if(error){setBanner('Impossibile aggiungere il collega: '+error.message,'error');return}
-  $('newName').value='';
-  await loadData();
-};
-
-$('importExcelBtn').onclick = () => {$('excelFile').click(); };
-
-// IMPORTAZIONE MASSIVA (SUPPORTO MULTI-MESE / ANNUALE)
-$('excelFile').onchange = async (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
-
-  setStatus('Lettura file Excel in corso...');
-  const reader = new FileReader();
-  reader.onload = async function(evt) {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, {type: 'array'});
-      
-      const shiftMap = {
-        'M': 'Mattina', 'MATTINA': 'Mattina',
-        'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
-        'N': 'Notte', 'NOTTE': 'Notte',
-        'R': 'Riposo', 'RIPOSO': 'Riposo',
-        'F': 'Ferie', 'FERIE': 'Ferie',
-        'MAL': 'Malattia', 'MALATTIA': 'Malattia'
-      };
-
-      const year = anchor.getFullYear();
-      let upsertList = [];
-
-      const monthNames = {
-        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
-        'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12,
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-      };
-
-      for(let sheetName of workbook.SheetNames) {
-        let sheetMonth = null;
-        let sheetLower = sheetName.toLowerCase().trim();
-        
-        for(let mKey in monthNames) {
-          if(sheetLower.includes(mKey)) {
-            sheetMonth = monthNames[mKey];
-            break;
-          }
-        }
-
-        const worksheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-
-        let headerRowIdx = -1;
-        let dayColumns = {};
-
-        for(let i=0; i<rows.length; i++) {
-          let row = rows[i];
-          for(let j=0; j<row.length; j++) {
-            let val = String(row[j] || '').trim();
-            if(val === '1' || val === '01') {
-              headerRowIdx = i;
-              for(let d=1; d<=31; d++) {
-                let colIdx = j + (d - 1);
-                if(colIdx < row.length) {
-                  dayColumns[d] = colIdx;
-                }
-              }
-              break;
-            }
-          }
-          if(headerRowIdx !== -1) break;
-        }
-
-        if(headerRowIdx === -1) continue;
-
-        let targetMonth = sheetMonth || (anchor.getMonth() + 1);
-
-        for(let i = headerRowIdx + 1; i < rows.length; i++) {
-          let row = rows[i];
-          if(!row || row.length === 0) continue;
-          let empNameRaw = String(row[0] || '').trim();
-          if(!empNameRaw) continue;
-
-          let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
-          if(!matchedPerson) continue;
-
-          for(let day in dayColumns) {
-            let colIdx = dayColumns[day];
-            let cellVal = String(row[colIdx] || '').trim().toUpperCase();
-            if(!cellVal) continue;
-
-            let shiftType = shiftMap[cellVal];
-            if(shiftType) {
-              let dayNum = parseInt(day);
-              let maxDays = new Date(year, targetMonth, 0).getDate();
-              if(dayNum > maxDays) continue;
-
-              let dayStr = String(dayNum).padStart(2, '0');
-              let monthStr = String(targetMonth).padStart(2, '0');
-              let shiftDate = `${year}-${monthStr}-${dayStr}`;
-              
-              upsertList.push({
-                employee_id: matchedPerson.id,
-                shift_date: shiftDate,
-                shift_type: shiftType
-              });
-            }
-          }
-        }
-      }
-
-      if(upsertList.length === 0) {
-        setBanner('Nessun turno valido trovato da importare. Verifica la struttura delle colonne (giorni da 1 a 31).', 'error');
-        setStatus('Nessun dato');
-        return;
-      }
-
-      setStatus('Salvataggio massivo su Supabase...');
-      const { error } = await supabase.from('shifts').upsert(upsertList, { onConflict: 'employee_id,shift_date' });
-      
-      if(error) {
-        setBanner('Errore durante il salvataggio: ' + error.message, 'error');
-        setStatus('Errore');
-        return;
-      }
-
-      setBanner(`Importazione completata! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
-      await loadData();
-
-    } catch (err) {
-      setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
-      setStatus('Errore file');
-    } finally {
-      e.target.value = '';
-    }
-  };
-  reader.readAsArrayBuffer(file);
-};
-
-$('csv').onclick=()=>{
-  let dates=datesInView();
-  let visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
-  let rows=[['Collega',...dates.map(iso)]];
-  visiblePeople.forEach(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
-  let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
-  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download='turni-team-'+iso(dates[0])+'.csv';a.click();URL.revokeObjectURL(a.href)
-};
-
-if(configured){
-  const {data}=await supabase.auth.getSession();
-  session=data.session;
-  updateAuthUI();
-  supabase.auth.onAuthStateChange((_event,s)=>{
-    session=s;
-    updateAuthUI();
-  });
-}
-await loadData();
-</script>
-</body></html>
