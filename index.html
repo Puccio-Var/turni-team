@@ -24,15 +24,15 @@ main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tab
       <div class="sub">Calendario condiviso del team</div>
     </div>
     
-    <!-- Zona Login / Admin in alto -->
+    <!-- Area Login in ALTO -->
     <div id="authContainer">
       <button id="loginOpen" class="btn">Accesso amministratore</button>
       
-      <form id="loginForm" class="header-auth hidden" onsubmit="return false;">
+      <form id="topLoginForm" class="header-auth hidden">
         <input id="email" class="field dark" type="email" autocomplete="username" placeholder="Email" required>
         <input id="password" class="field dark" type="password" autocomplete="current-password" placeholder="Password" required>
-        <button id="login" type="submit" class="btn primary">Accedi</button>
-        <button id="loginCancel" type="button" class="btn">Annulla</button>
+        <button id="loginSubmitBtn" type="submit" class="btn primary">Accedi</button>
+        <button id="loginCancelBtn" type="button" class="btn">Annulla</button>
       </form>
       
       <div id="loggedInHeader" class="header-auth hidden">
@@ -49,14 +49,14 @@ main{max-width:1320px;margin:24px auto;padding:0 16px}.toolbar,.left,.right,.tab
 <div class="stats"><div class="stat"><small>COLLEGHI</small><strong id="nPeople">—</strong></div><div class="stat"><small>MATTINE NELLA VISTA</small><strong id="nMorning">—</strong></div><div class="stat"><small>NOTTI NELLA VISTA</small><strong id="nNight">—</strong></div><div class="stat"><small>FERIE NELLA VISTA</small><strong id="nFerie">—</strong></div></div>
 <section class="panel"><div class="panelhead"><div><h3>Programmazione</h3><p>Il team può consultare il calendario. Solo l'amministratore autenticato può modificarlo.</p></div><div class="legend"><span class="tag Mattina">Mattina</span><span class="tag Pomeriggio">Pomeriggio</span><span class="tag Notte">Notte</span><span class="tag Riposo">Riposo</span><span class="tag Ferie">Ferie</span></div></div><div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div><div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Non collegato</span></div></section>
 
-<!-- Pannello aggiunta colleghi (visibile solo se loggati) -->
+<!-- Pannello gestione colleghi visibile solo dopo l'accesso -->
 <section class="panel admin hidden" id="adminPanel">
   <h3>Gestione colleghi</h3>
   <div class="small">Aggiungi i componenti del team. Le modifiche si salvano nel database online.</div>
-  <div class="formrow">
-    <input id="newName" class="field" placeholder="Nome e cognome">
-    <button id="addPerson" class="btn primary">Aggiungi collega</button>
-  </div>
+  <form id="addPersonForm" class="formrow">
+    <input id="newName" class="field" placeholder="Nome e cognome" required>
+    <button type="submit" id="addPerson" class="btn primary">Aggiungi collega</button>
+  </form>
 </section>
 </main>
 
@@ -83,10 +83,10 @@ function admin(){return !!session}
 
 function updateAuthUI(){
   if(admin()){
-    $('loginOpen').classList.add('hidden');$('loginForm').classList.add('hidden');
+    $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
     $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
   } else {
-    $('loginOpen').classList.remove('hidden');$('loginForm').classList.add('hidden');
+    $('loginOpen').classList.remove('hidden');$('topLoginForm').classList.add('hidden');
     $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
   }
 }
@@ -159,20 +159,22 @@ async function removePerson(personId){
  await loadData();
 }
 
-const handleLogin = async () => {
-  if(!configured)return setBanner('Completa prima la configurazione Supabase.','error');
+// Gestione login form
+$('topLoginForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if(!configured) return setBanner('Completa prima la configurazione Supabase.','error');
   const email = $('email').value.trim();
   const password = $('password').value;
   if(!email || !password) return;
   
   setStatus('Accesso in corso…');
-  const {data,error}=await supabase.auth.signInWithPassword({email,password});
+  const {data,error} = await supabase.auth.signInWithPassword({email, password});
   if(error){
-    setBanner('Accesso non riuscito: '+error.message,'error');
+    setBanner('Accesso non riuscito: ' + error.message, 'error');
     setStatus('Errore accesso');
     return;
   }
-  session=data.session;
+  session = data.session;
   updateAuthUI();
   await loadData();
 };
@@ -182,16 +184,11 @@ $('next').onclick=()=>{anchor=view==='week'?addDays(anchor,7):new Date(anchor.ge
 $('weekTab').onclick=()=>{view='week';render()};$('monthTab').onclick=()=>{view='month';render()};
 
 $('loginOpen').onclick=()=>{$('loginOpen').classList.add('hidden');
-  $('loginForm').classList.remove('hidden');$('email').focus();
+  $('topLoginForm').classList.remove('hidden');$('email').focus();
 };
 
-$('loginCancel').onclick=()=>{
-  $('loginForm').classList.add('hidden');$('loginOpen').classList.remove('hidden');
-};
-
-$('loginForm').onsubmit=(e)=>{
-  e.preventDefault();
-  handleLogin();
+$('loginCancelBtn').onclick=()=>{
+  $('topLoginForm').classList.add('hidden');$('loginOpen').classList.remove('hidden');
 };
 
 $('logout').onclick=async()=>{
@@ -202,7 +199,8 @@ $('logout').onclick=async()=>{
   await loadData();
 };
 
-$('addPerson').onclick=async()=>{
+$('addPersonForm').onsubmit = async (e) => {
+  e.preventDefault();
   let name=$('newName').value.trim();
   if(!name)return;
   if(!admin())return setBanner('Devi accedere come amministratore.','error');
@@ -211,13 +209,6 @@ $('addPerson').onclick=async()=>{
   $('newName').value='';
   await loadData();
 };
-
-$('newName').addEventListener('keydown', async (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    $('addPerson').click();
-  }
-});
 
 $('csv').onclick=()=>{let ds=datesInView(),rows=[['Collega',...ds.map(iso)]];people.forEach(p=>rows.push([p.name,...ds.map(d=>getShift(p.id,d)||'—')]));let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='turni-team-'+iso(ds[0])+'.csv';a.click();URL.revokeObjectURL(a.href)};
 
