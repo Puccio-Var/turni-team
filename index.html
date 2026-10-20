@@ -22,6 +22,14 @@ main{max-width:98%;margin:24px auto;padding:0 12px}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;overflow:hidden;margin-bottom:20px}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
 .tablewrap{overflow:auto}table{border-collapse:separate;border-spacing:0;width:100%}th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 4px;text-align:center}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8faff;cursor:pointer}
 th.selected-day,td.selected-day{background:#edf3ff!important}
+
+/* Evidenziazione Turni Scoperte / Rischio */
+th.day-danger { background: #ffebee !important; color: #c62828 !important; border-bottom: 2px solid #ef5350 !important; }
+th.day-warning { background: #fff8e1 !important; color: #f57f17 !important; border-bottom: 2px solid #ffca28 !important; }
+.alert-tag { display: block; font-size: 9px; font-weight: 800; margin-top: 2px; padding: 1px 3px; border-radius: 4px; }
+.alert-tag.danger { background: #d32f2f; color: #fff; }
+.alert-tag.warning { background: #f57c00; color: #fff; }
+
 th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:180px;background:#fff;z-index:1;cursor:default}th:first-child{background:#f8faff;z-index:2}.date{display:block;margin-top:2px;font-size:12px;color:var(--ink);letter-spacing:0;text-transform:none;pointer-events:none}
 .person{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .person-info{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px;border-radius:6px;transition:background .15s;user-select:none;width:100%}
@@ -145,7 +153,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead">
     <div>
       <h3>Programmazione Turni - Team Helpdesk</h3>
-      <p id="panelSub">Passa con il mouse sulle righe per evidenziarle, clicca sui contatori per filtrare i turni.</p>
+      <p id="panelSub">I giorni con turni scoperte (0 op.) o a rischio (1 op.) vengono evidenziati in rosso/arancione nell'intestazione.</p>
     </div>
     <div class="legend">
       <span class="tag Mattina">Mattina</span>
@@ -217,7 +225,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 <section class="panel admin hidden" id="adminPanel">
   <h3>Gestione colleghi e Importazione Turni</h3>
-  <div class="small">Aggiungi i componenti o importa i turni del mese corrente tramite file Excel.</div>
+  <div class="small">Aggiungi nuovi componenti, importa da Excel o gestisci l'archivio degli utenti disattivati (es. licenziati/trasferiti).</div>
   
   <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
     <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
@@ -225,10 +233,16 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <button type="submit" id="addPerson" class="btn primary">Aggiungi collega</button>
     </form>
     
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none">
       <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
+      <button type="button" id="toggleArchivedBtn" class="btn" style="background:#f1f5f9;color:#334155;">📦 Gestisci Operatori Archiviati</button>
     </div>
+  </div>
+
+  <div id="archivedSection" class="hidden" style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;">
+    <h4 style="margin:0 0 8px;font-size:14px;color:#334155;">Operatori Archiviati / Disabilitati</h4>
+    <div id="archivedList" style="font-size:13px;">Caricamento...</div>
   </div>
 </section>
 </main>
@@ -241,7 +255,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia'];
-let people=[], shifts=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
+let people=[], archivedPeople=[], shifts=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
 
 const pad=n=>String(n).padStart(2,'0');
 function iso(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
@@ -295,14 +309,34 @@ function render(){
  if(admin()) updateHistoryDropdown();
  
  const visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
- 
  const rosterTable = $('roster');
  rosterTable.className = view === 'month' ? 'month-view' : '';
  
+ // Calcola copertura per ciascun giorno (0 o 1 op. nei turni principali)
  let head='<tr><th>Collega</th>'+dates.map(d=>{
    const dIso = iso(d);
    const isSel = dIso === selectedDateIso;
-   return `<th data-date-col="${dIso}" class="${isSel?'selected-day':''}">${d.toLocaleDateString('it-IT',{weekday:'short'})}<span class="date">${labelDate(d)}</span></th>`;
+   
+   let counts = { Mattina: 0, Pomeriggio: 0, Notte: 0 };
+   people.forEach(p => {
+     let s = getShift(p.id, dIso);
+     if(counts[s] !== undefined) counts[s]++;
+   });
+
+   let hasZero = counts.Mattina === 0 || counts.Pomeriggio === 0 || counts.Notte === 0;
+   let hasOne = counts.Mattina === 1 || counts.Pomeriggio === 1 || counts.Notte === 1;
+
+   let alertClass = '';
+   let alertBadge = '';
+   if(hasZero) {
+     alertClass = 'day-danger';
+     alertBadge = '<span class="alert-tag danger">🚨 0 Op.</span>';
+   } else if(hasOne) {
+     alertClass = 'day-warning';
+     alertBadge = '<span class="alert-tag warning">⚠️ 1 Op.</span>';
+   }
+
+   return `<th data-date-col="${dIso}" class="${isSel?'selected-day':''} ${alertClass}">${d.toLocaleDateString('it-IT',{weekday:'short'})}<span class="date">${labelDate(d)}</span>${alertBadge}</th>`;
  }).join('')+'</tr>';
  rosterTable.querySelector('thead').innerHTML=head;
  
@@ -344,7 +378,7 @@ function render(){
         <div class="avatar">${p.name.trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}</div>
         <b>${escapeHtml(p.name)}</b>
       </div>
-      ${admin()?`<button class="btn-del" data-remove-id="${p.id}" title="Rimuovi collega">🗑️</button>`:''}
+      ${admin()?`<button class="btn-del" data-remove-id="${p.id}" title="Archivia operatore">📦</button>`:''}
     </div>
   </td>`+dates.map(d=>{
     let dIso = iso(d);
@@ -360,8 +394,8 @@ function render(){
  rosterTable.querySelectorAll('.btn-del').forEach(el=>el.addEventListener('click',async e=>{
    const pId=e.target.dataset.removeId;
    const pName=people.find(p=>p.id===pId)?.name || 'questo collega';
-   if(confirm(`Sei sicuro di voler rimuovere ${pName} dal team?`)){
-     await removePerson(pId);
+   if(confirm(`Vuoi archiviare/disabilitare ${pName}? L'operatore non comparirà più nel calendario corrente ma lo storico dei suoi turni verrà mantenuto.`)){
+     await archivePerson(pId);
    }
  }));
  
@@ -384,8 +418,9 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 async function loadData(){
  setStatus('Caricamento dati...');
- const [pr,sr]=await Promise.all([
+ const [pr, ar, sr]=await Promise.all([
    supabase.from('employees').select('id,name').eq('active',true).order('name'),
+   supabase.from('employees').select('id,name').eq('active',false).order('name'),
    supabase.from('shifts').select('employee_id,shift_date,shift_type')
  ]);
 
@@ -398,12 +433,36 @@ async function loadData(){
  }
 
  people=pr.data||[];
+ archivedPeople=ar.data||[];
  shifts=sr.data||[];
  updateAuthUI();
+ renderArchivedList();
  render();
  setStatus(admin()?'Amministratore collegato':'Consultazione pubblica');
  setBanner(admin()?'Accesso amministratore attivo.':'Calendario aggiornato. Consultazione pubblica attiva.','ok');
 }
+
+function renderArchivedList(){
+  const container = $('archivedList');
+  if(archivedPeople.length === 0){
+    container.innerHTML = '<span style="color:var(--muted);">Nessun operatore archiviato.</span>';
+    return;
+  }
+  container.innerHTML = archivedPeople.map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #e2e8f0;">
+      <span><b>${escapeHtml(p.name)}</b> (Archiviato)</span>
+      <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="window.restorePerson('${p.id}')">🔄 Riabilita</button>
+    </div>
+  `).join('');
+}
+
+window.restorePerson = async function(personId){
+  setStatus('Riattivazione operatore...');
+  const {error} = await supabase.from('employees').update({active: true}).eq('id', personId);
+  if(error){ setBanner('Errore nel riattivare l\'operatore: ' + error.message, 'error'); return; }
+  setBanner('Operatore riattivato con successo.', 'ok');
+  await loadData();
+};
 
 async function setShift(personId,date,type){
  setStatus('Salvataggio…');
@@ -416,11 +475,11 @@ async function setShift(personId,date,type){
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
 
-async function removePerson(personId){
- setStatus('Rimozione in corso…');
+async function archivePerson(personId){
+ setStatus('Archiviazione in corso…');
  const {error}=await supabase.from('employees').update({active:false}).eq('id',personId);
- if(error){setBanner('Errore durante la rimozione del collega: '+error.message,'error');return}
- setBanner('Collega rimosso con successo.','ok');
+ if(error){setBanner('Errore durante l\'archiviazione: '+error.message,'error');return}
+ setBanner('Operatore archiviato con successo (lo storico turni è rimasto intatto).','ok');
  if(selectedPersonId===personId) selectedPersonId='';
  await loadData();
 }
@@ -474,7 +533,9 @@ $('calcHistoryBtn').onclick = () => {
   const selectedTypes = Array.from(document.querySelectorAll('#histShiftCheckboxes input:checked')).map(el => el.value);
   if(selectedTypes.length === 0) { alert('Seleziona almeno un tipo di turno da analizzare.'); return; }
 
-  const person = people.find(p => p.id === pId);
+  const allPeopleList = [...people, ...archivedPeople];
+  const person = allPeopleList.find(p => p.id === pId);
+
   const filteredShifts = shifts.filter(s => {
     return s.employee_id === pId &&
            s.shift_date >= startStr &&
@@ -531,6 +592,9 @@ $('loginOpen').onclick = () => {
 
 $('loginCancelBtn').onclick = () => {
   updateAuthUI(false);
+};
+
+$('toggleArchivedBtn').onclick = () => {$('archivedSection').classList.toggle('hidden');
 };
 
 $('topLoginForm').onsubmit = async (e) => {
@@ -634,7 +698,7 @@ $('excelFile').onchange = async (e) => {
 
       const year = anchor.getFullYear();
       const month = anchor.getMonth() + 1;
-      let upsertList = [];
+      let rawUpsertList = [];
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
         let row = rows[i];
@@ -657,7 +721,7 @@ $('excelFile').onchange = async (e) => {
             let monthStr = String(month).padStart(2, '0');
             let shiftDate = `${year}-${monthStr}-${dayStr}`;
             
-            upsertList.push({
+            rawUpsertList.push({
               employee_id: matchedPerson.id,
               shift_date: shiftDate,
               shift_type: shiftType
@@ -665,6 +729,14 @@ $('excelFile').onchange = async (e) => {
           }
         }
       }
+
+      // Rimuove duplicati basati su employee_id + shift_date
+      let uniqueMap = new Map();
+      rawUpsertList.forEach(item => {
+        let key = `${item.employee_id}_${item.shift_date}`;
+        uniqueMap.set(key, item);
+      });
+      let upsertList = Array.from(uniqueMap.values());
 
       if(upsertList.length === 0) {
         setBanner('Nessun turno valido trovato da importare per il mese corrente.', 'error');
