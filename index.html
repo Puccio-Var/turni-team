@@ -184,7 +184,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
 </section>
 
-<!-- Widget Chatbot IA (Visibile solo per Admin) con configurazione chiave integrata -->
+<!-- Widget Chatbot IA (Visibile solo per Admin) -->
 <div id="aiWidget" class="hidden">
   <div id="aiChatBox" class="hidden">
     <div id="aiChatHeader">
@@ -192,7 +192,6 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <button id="closeAiChatBtn" style="background:transparent;border:0;color:#fff;cursor:pointer;font-size:16px;">✕</button>
     </div>
     
-    <!-- Sezione configurazione chiave se assente -->
     <div id="aiApiKeySection" style="padding:10px;background:#fff8e6;border-bottom:1px solid #f0dfb4;font-size:11px;">
       <div style="font-weight:700;margin-bottom:4px;color:#765816;">🔑 Inserisci la tua Gemini API Key:</div>
       <div style="display:flex;gap:4px;">
@@ -399,11 +398,10 @@ $('resetFilterBtn').onclick = () => {
 
 $('printBtn').onclick = () => { window.print(); };
 
-// Gestione Chiave API Gemini direttamente nel pannello Chat
 const savedKey = localStorage.getItem('gemini_api_key') || '';
 if(savedKey) {
   $('geminiApiKeyInput').value = savedKey;
-  $('aiApiKeySection').classList.add('hidden'); // Nascondi se già inserita
+  $('aiApiKeySection').classList.add('hidden');
 }
 
 $('saveApiKeyBtn').onclick = () => {
@@ -414,11 +412,9 @@ $('saveApiKeyBtn').onclick = () => {
   alert('Chiave API salvata nel browser!');
 };
 
-// Toggle Chatbot
 $('toggleAiChatBtn').onclick = () => {$('aiChatBox').classList.toggle('hidden'); };
 $('closeAiChatBtn').onclick = () => {$('aiChatBox').classList.add('hidden'); };
 
-// Gestione invio messaggi Chatbot IA
 $('aiChatForm').onsubmit = async (e) => {
   e.preventDefault();
   const inputEl = $('aiChatInput');
@@ -451,13 +447,12 @@ Tipi di turno validi: Mattina, Pomeriggio, Notte, Riposo, Ferie, Malattia.
 
 Richiesta dell'admin: "${userQuery}"
 
-Se l'admin chiede un'operazione di modifica (es. spostare, aggiungere o scambiare turni), restituisci un JSON con questa struttura:
-{"action": "update", "changes": [{"employee_id": "...", "shift_date": "YYYY-MM-DD", "shift_type": "..."}], "reply": "Spiegazione in italiano"}
-
-Se l'admin fa una domanda o chiede statistiche/conteggi (es. quante notti o pomeriggi ha fatto X), restituisci un JSON con questa struttura:
-{"action": "info", "reply": "Risposta dettagliata in italiano"}
-
-Rispondi ESCLUSIVAMENTE in formato JSON senza formattazione markdown.`;
+Restituisci la risposta ESCLUSIVAMENTE in formato JSON puro (senza markdown o backtick), con questa struttura esatta:
+{
+  "action": "update" oppure "info",
+  "changes": [{"employee_id": "...", "shift_date": "YYYY-MM-DD", "shift_type": "..."}],
+  "reply": "Testo della risposta in italiano"
+}`;
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -466,11 +461,27 @@ Rispondi ESCLUSIVAMENTE in formato JSON senza formattazione markdown.`;
     });
 
     const resData = await response.json();
-    const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
+    
+    if(resData.error) {
+      throw new Error(resData.error.message || 'Errore restituito dalle API Google');
+    }
 
+    const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
     $(loadingId).remove();
+
+    // Pulisce eventuali formattazioni markdown che l'IA potrebbe aver aggiunto per errore
+    const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch(parseErr) {
+      // Se l'IA non ha risposto in JSON ma in testo normale, mostra comunque il testo come risposta dell'assistente
+      body.innerHTML += `<div class="chat-msg ai">${escapeHtml(rawText || 'Risposta ricevuta ma formato non riconosciuto.')}</div>`;
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
 
     if(parsed.action === 'update' && parsed.changes && parsed.changes.length > 0) {
       for(let change of parsed.changes) {
@@ -483,7 +494,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON senza formattazione markdown.`;
 
   } catch(err) {
     $(loadingId).remove();
-    body.innerHTML += `<div class="chat-msg ai" style="color:var(--red);">Errore durante l'elaborazione: ${escapeHtml(err.message)}</div>`;
+    body.innerHTML += `<div class="chat-msg ai" style="color:var(--red);">Errore: ${escapeHtml(err.message)}</div>`;
   }
   body.scrollTop = body.scrollHeight;
 };
