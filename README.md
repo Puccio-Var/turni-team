@@ -1,1 +1,0 @@
-# turni-team
