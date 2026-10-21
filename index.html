@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{background:#14213d;color:white;padding:22px max(24px,calc((100% - 98%) / 2))}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.title{font-size:26px;font-weight:800;margin:0}
 main{max-width:98%;margin:24px auto;padding:0 12px}
-.toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:var(--f2caca)}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
+.toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:#f2caca}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
 
 .stats-header{font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:6px;justify-content:space-between}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
@@ -158,7 +158,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 <div class="stats">
   <div class="stat" data-shift-filter="Mattina" id="statMattina"><small>MATTINA</small><strong id="nMorning">0</strong></div>
   <div class="stat" data-shift-filter="Pomeriggio" id="statPomeriggio"><small>POMERIGGIO</small><strong id="nAfternoon">0</strong></div>
-  <div class="stat" data-shift-filter="Notte" id="statNotte"><small>NOTTE</small><strong id="nNight">0</strong></div>
+  <div class="stat" data-shift-filter="Notte" id="statNotte"><strong id="nNight">0</strong></div>
   <div class="stat" data-shift-filter="Riposo" id="statRiposo"><small>RIPOSO</small><strong id="nRest">0</strong></div>
   <div class="stat" data-shift-filter="Ferie" id="statFerie"><small>FERIE</small><strong id="nFerie">0</strong></div>
   <div class="stat" data-shift-filter="Malattia" id="statMalattia"><small>MALATTIA</small><strong id="nSick">0</strong></div>
@@ -1069,7 +1069,7 @@ $('monthClearBtn').onclick = async () => {
   await loadData();
 };
 
-// --- IMPORTAZIONE EXCEL DEL MESE CORRENTE ---
+// --- IMPORTAZIONE EXCEL DEL MESE CORRENTE CON MATCHING FLESSIBILE ---
 $('monthImportBtn').onclick = () => { $('monthExcelFile').click(); };
 
 $('monthExcelFile').onchange = async (e) => {
@@ -1089,11 +1089,12 @@ $('monthExcelFile').onchange = async (e) => {
       const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
       if(rows.length < 2) {
-        setBanner('Le file Excel sembra vuoto.', 'error');
+        setBanner('Il file Excel sembra vuoto.', 'error');
         return;
       }
 
-      const cleanStr = s => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      // Funzione di pulizia avanzata per confrontare i nomi senza errori di punti/spazi/iniziali
+      const cleanStr = s => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
 
       const shiftMap = {
         'M': 'Mattina', 'MATTINA': 'Mattina',
@@ -1150,6 +1151,8 @@ $('monthExcelFile').onchange = async (e) => {
         if (!nameVal) continue;
 
         let cNameClean = cleanStr(nameVal);
+
+        // Matching flessibile: controlla uguaglianza esatta o inclusione del cognome/nome
         let matchedPerson = allDbPeople.find(p => {
           let pClean = cleanStr(p.name);
           return pClean === cNameClean || pClean.includes(cNameClean) || cNameClean.includes(pClean);
