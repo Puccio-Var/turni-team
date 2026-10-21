@@ -541,30 +541,36 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 async function loadData(){
  setStatus('Caricamento dati...');
- const [pr, ar, sr, swr]=await Promise.all([
-   supabase.from('employees').select('id,name,last_day').eq('active',true).order('name'),
-   supabase.from('employees').select('id,name,last_day').eq('active',false).order('name'),
-   supabase.from('shifts').select('employee_id,shift_date,shift_type'),
-   supabase.from('smartworking_requests').select('employee_id,request_date,shift_type')
- ]);
+ try {
+   const [pr, ar, sr, swr]=await Promise.all([
+     supabase.from('employees').select('id,name,last_day').eq('active',true).order('name'),
+     supabase.from('employees').select('id,name,last_day').eq('active',false).order('name'),
+     supabase.from('shifts').select('employee_id,shift_date,shift_type'),
+     supabase.from('smartworking_requests').select('employee_id,request_date,shift_type')
+   ]);
 
- if(pr.error || sr.error){
-   const errMsg = pr.error?.message || sr.error?.message;
-   setBanner('Errore di connessione a Supabase: ' + errMsg, 'error');
-   setStatus('Errore DB');
-   console.error('Supabase Error:', pr.error || sr.error);
-   return;
+   if(pr.error || sr.error || ar.error || swr.error){
+     const errMsg = pr.error?.message || sr.error?.message || ar.error?.message || swr.error?.message;
+     setBanner('Errore di connessione a Supabase: ' + errMsg, 'error');
+     setStatus('Errore DB');
+     console.error('Supabase Error:', pr.error || sr.error || ar.error || swr.error);
+     return;
+   }
+
+   people=pr.data||[];
+   archivedPeople=ar.data||[];
+   shifts=sr.data||[];
+   smartworking=swr.data||[];
+   updateAuthUI();
+   renderArchivedList();
+   render();
+   setStatus(admin()?'Amministratore collegato':'Consultazione pubblica');
+   setBanner(admin()?'Accesso amministratore attivo.':'Calendario aggiornato. Consultazione pubblica attiva.','ok');
+ } catch(err) {
+   console.error('Errore critico loadData:', err);
+   setBanner('Errore critico di caricamento: ' + err.message, 'error');
+   setStatus('Errore');
  }
-
- people=pr.data||[];
- archivedPeople=ar.data||[];
- shifts=sr.data||[];
- smartworking=swr.data||[];
- updateAuthUI();
- renderArchivedList();
- render();
- setStatus(admin()?'Amministratore collegato':'Consultazione pubblica');
- setBanner(admin()?'Accesso amministratore attivo.':'Calendario aggiornato. Consultazione pubblica attiva.','ok');
 }
 
 function renderArchivedList(){
@@ -883,7 +889,7 @@ $('calcHistoryBtn').onclick = () => {
   if(!startStr || !endStr) { alert('Seleziona data inizio e data fine.'); return; }
 
   const selectedTypes = Array.from(document.querySelectorAll('#histShiftCheckboxes input:checked')).map(el => el.value);
-  if(selectedTypes.length === 0) { alert('Seleziona almeno un tipo di turno da analizzare.'); return; }
+  if(selectedTypes.length === 0) { alert('Seleziona almeno un turno da analizzare.'); return; }
 
   const allPeopleList = [...people, ...archivedPeople];
   const person = allPeopleList.find(p => p.id === pId);
@@ -908,7 +914,7 @@ $('calcHistoryBtn').onclick = () => {
 
   const tbody = $('histResultTable').querySelector('tbody');
   if(filteredShifts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted);padding:12px;">Nessun turno trovato in questo intervallo con i filtri selezionati.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted);padding:12px;">Nessun turno trovato in questo intervallo.</td></tr>';
   } else {
     tbody.innerHTML = filteredShifts.map(s => {
       const [y, m, d] = s.shift_date.split('-');
