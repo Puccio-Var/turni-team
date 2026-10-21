@@ -1005,7 +1005,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE DI IMPORTAZIONE EXCEL ROBUSTO E PRECISO ---
+// --- MOTORE DI IMPORTAZIONE EXCEL A BLOCCHI (BATCH) SICURO ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1026,12 +1026,10 @@ $('excelFile').onchange = async (e) => {
       let detectedYear = anchor.getFullYear();
       let detectedMonth = anchor.getMonth() + 1;
 
-      // 1. Cerca la riga contenente i giorni (1, 2, 3...) e individua mese/anno
       for(let i=0; i<rows.length; i++) {
         let row = rows[i];
         let rowStr = row.join(' ').toLowerCase();
         
-        // Rileva eventuale mese dalle celle (es. "settembre", "september", etc.)
         if(rowStr.includes('settembre') || rowStr.includes('sep')) detectedMonth = 9;
         else if(rowStr.includes('gennaio')) detectedMonth = 1;
         else if(rowStr.includes('febbraio')) detectedMonth = 2;
@@ -1081,7 +1079,6 @@ $('excelFile').onchange = async (e) => {
       let rawUpsertList = [];
       const allPeopleList = [...people, ...archivedPeople];
 
-      // Funzione di normalizzazione dei nomi per il matching infallibile
       const cleanName = (n) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
@@ -1094,7 +1091,6 @@ $('excelFile').onchange = async (e) => {
 
         let matchedPerson = allPeopleList.find(p => {
           let cleanDbName = cleanName(p.name);
-          // Controlla corrispondenza esatta o se contiene le parti del nome
           return cleanDbName === cleanExcelName || cleanDbName.includes(cleanExcelName) || cleanExcelName.includes(cleanDbName);
         });
 
@@ -1132,22 +1128,29 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
-      setStatus('Salvataggio turni su Supabase...');
-      const { error } = await supabase.from('shifts').upsert(upsertList, { onConflict: 'employee_id,shift_date' });
+      setStatus('Salvataggio turni a blocchi su Supabase...');
       
-      if(error) {
-        setBanner('Errore durante il salvataggio dei turni: ' + error.message, 'error');
-        setStatus('Errore');
-        return;
+      // Invio a blocchi di 100 righe per evitare timeout e errori di payload troppo grande
+      const batchSize = 100;
+      for (let i = 0; i < upsertList.length; i += batchSize) {
+        const batch = upsertList.slice(i, i + batchSize);
+        const { error } = await supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' });
+        
+        if(error) {
+          console.error('Errore Supabase Batch:', error);
+          setBanner('Errore salvataggio batch: ' + error.message, 'error');
+          setStatus('Errore DB');
+          return;
+        }
       }
 
-      // Sposta il calendario visualizzato esattamente sul mese importato per vederlo subito
       anchor = new Date(detectedYear, detectedMonth - 1, 15, 12);
 
-      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni per il mese di Settembre.`, 'ok');
+      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
       await loadData();
 
     } catch (err) {
+      console.error('Errore generico file Excel:', err);
       setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
       setStatus('Errore file');
     } finally {
