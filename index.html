@@ -1002,7 +1002,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE DI IMPORTAZIONE ULTRASICURO CON TIMEOUT E PROGRESS BAR ---
+// --- IMPORTAZIONE EXCEL GARANTITA (CANCELLAZIONE PREVENTIVA MESE + INSERIMENTO TOTALE) ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1077,10 +1077,11 @@ $('excelFile').onchange = async (e) => {
       let rawUpsertList = [];
       const allPeopleList = [...people, ...archivedPeople];
 
-      // Normalizzazione flessibile dei nomi per matching perfetto
       const cleanName = (n) => String(n || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 
       const lastDayOfMonth = new Date(detectedYear, detectedMonth, 0).getDate();
+      const monthStartDate = `${detectedYear}-${monthStr}-01`;
+      const monthEndDate = `${detectedYear}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
         let row = rows[i];
@@ -1131,37 +1132,34 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
-      setStatus('Invio dati a Supabase...');
-      setBanner(`Invio di ${upsertList.length} turni a Supabase in corso...`, '');
+      setStatus('Pulizia vecchi turni mese...');
+      setBanner(`Pulizia dei vecchi turni per il mese di Settembre (${monthStartDate} - ${monthEndDate})...`, '');
 
-      // Invio con timeout di sicurezza per prevenire blocchi indefiniti
-      const sendWithTimeout = (promise, ms = 8000) => {
-        return Promise.race([
-          promise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout richiesta Supabase')), ms))
-        ]);
-      };
+      // STEP 1: Cancellazione pulita dei turni del mese corrente
+      const deleteRes = await supabase.from('shifts')
+        .delete()
+        .gte('shift_date', monthStartDate)
+        .lte('shift_date', monthEndDate);
 
+      if(deleteRes.error) {
+        console.error('Errore pulizia mese:', deleteRes.error);
+        setBanner('Errore nella pulizia del mese: ' + deleteRes.error.message, 'error');
+        setStatus('Errore DB');
+        return;
+      }
+
+      setStatus('Inserimento nuovi turni...');
+      setBanner(`Inserimento di ${upsertList.length} turni puliti su Supabase...`, '');
+
+      // STEP 2: Inserimento in blocchi sicuri da 100 elementi
       const batchSize = 100;
-      const totalBatches = Math.ceil(upsertList.length / batchSize);
-
       for (let i = 0; i < upsertList.length; i += batchSize) {
-        const currentBatchNum = Math.floor(i / batchSize) + 1;
         const batch = upsertList.slice(i, i + batchSize);
-
-        setBanner(`Salvataggio su Supabase: pacchetto ${currentBatchNum} di ${totalBatches}...`, '');
-
-        try {
-          const res = await sendWithTimeout(
-            supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' })
-          );
-          
-          if(res.error) {
-            throw new Error(res.error.message);
-          }
-        } catch (err) {
-          console.error('Errore durante il salvataggio:', err);
-          setBanner('Errore salvataggio Supabase: ' + err.message, 'error');
+        const insertRes = await supabase.from('shifts').insert(batch);
+        
+        if(insertRes.error) {
+          console.error('Errore inserimento batch:', insertRes.error);
+          setBanner('Errore inserimento turni: ' + insertRes.error.message, 'error');
           setStatus('Errore DB');
           return;
         }
@@ -1169,7 +1167,7 @@ $('excelFile').onchange = async (e) => {
 
       anchor = new Date(detectedYear, detectedMonth - 1, 15, 12);
 
-      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
+      setBanner(`Importazione completata con successo! Sovrascritti perfettamente ${upsertList.length} turni per Settembre.`, 'ok');
       await loadData();
 
     } catch (err) {
