@@ -538,7 +538,7 @@ function render(){
  $('weekTab').classList.toggle('active',view==='week');$('monthTab').classList.toggle('active',view==='month');
 }
 
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;p'}[c]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadData(){
  setStatus('Caricamento dati...');
@@ -1003,7 +1003,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE DI IMPORTAZIONE EXCEL DEFINITIVO (SCANSIONE COMPLETA FINO A 30 GIORNI) ---
+// --- IMPORTAZIONE EXCEL SICURA CON SUPPORTO AD OPERATORI ARCHIVIATI E TUTTI I TURNI ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1022,7 +1022,7 @@ $('excelFile').onchange = async (e) => {
       let headerRowIdx = -1;
       let dayColumns = {};
       let detectedYear = anchor.getFullYear();
-      let detectedMonth = 9; // Settembre di default per questo file
+      let detectedMonth = 9; // Settembre di default se non specificato
 
       for(let i=0; i<rows.length; i++) {
         let row = rows[i];
@@ -1066,7 +1066,7 @@ $('excelFile').onchange = async (e) => {
       const shiftMap = {
         'M': 'Mattina', 'MATTINA': 'Mattina',
         'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
-        'T': 'Pomeriggio', 'TURNO': 'Pomeriggio',
+        'T': 'Diurno', 'TURNO': 'Diurno',
         'N': 'Notte', 'NOTTE': 'Notte',
         'R': 'Riposo', 'RIPOSO': 'Riposo',
         'F': 'Ferie', 'FERIE': 'Ferie',
@@ -1076,11 +1076,12 @@ $('excelFile').onchange = async (e) => {
 
       const monthStr = String(detectedMonth).padStart(2, '0');
       let rawUpsertList = [];
+      
+      // INCLUDE SIA ATTIVI CHE ARCHIVIATI PER IL MATCHING!
       const allPeopleList = [...people, ...archivedPeople];
 
       const cleanName = (n) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
 
-      // Determina l'ultimo giorno effettivo del mese (es. 30 per settembre)
       const lastDayOfMonth = new Date(detectedYear, detectedMonth, 0).getDate();
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
@@ -1098,7 +1099,6 @@ $('excelFile').onchange = async (e) => {
 
         if(!matchedPerson) continue;
 
-        // Scansione rigorosa giorno per giorno fino alla fine del mese
         for(let d = 1; d <= lastDayOfMonth; d++) {
           let colIdx = dayColumns[d];
           if(colIdx === undefined) continue;
