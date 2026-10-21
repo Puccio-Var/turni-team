@@ -1002,14 +1002,14 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE PARSER CORRETTO (MATCH ESATTO SUL NOME DELLA COLONNA B) ---
+// --- MOTORE DI IMPORTAZIONE MULTI-MESE ROBUSTO E GARANTITO ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
   if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
 
   setStatus('Lettura file Excel...');
-  setBanner('Analisi multi-mese del file Excel in corso...', '');
+  setBanner('Analisi del file Excel in corso...', '');
 
   const reader = new FileReader();
   reader.onload = async function(evt) {
@@ -1048,137 +1048,113 @@ $('excelFile').onchange = async (e) => {
       let monthsFound = new Set();
       const allDbPeople = [...people, ...archivedPeople];
 
-      // Funzione di matching basata unicamente sul Nome (Colonna B)
-      const findPersonByName = (nameVal) => {
-        let cleanName = cleanStr(nameVal);
-        if(!cleanName) return null;
-
+      const findPerson = (val1, val2) => {
+        let c1 = cleanStr(val1);
+        let c2 = cleanStr(val2);
         return allDbPeople.find(p => {
           let pClean = cleanStr(p.name);
-          return pClean === cleanName || pClean.includes(cleanName) || cleanName.includes(pClean);
+          return (c1 && (pClean === c1 || pClean.includes(c1) || c1.includes(pClean))) ||
+                 (c2 && (pClean === c2 || pClean.includes(c2) || c2.includes(pClean)));
         });
       };
 
-      let i = 0;
-      while (i < rows.length) {
-        let row = rows[i] || [];
-        let rowStr = row.join(' ').toLowerCase();
+      let currentMonthNum = null;
+      let currentDayCols = {};
 
-        let detectedMonth = null;
-        for(let mName in monthMap) {
-          if(rowStr.includes(mName)) {
-            detectedMonth = monthMap[mName];
+      for (let r = 0; r < rows.length; r++) {
+        let row = rows[r] || [];
+        let rowStr = row.map(v => String(v || '')).join(' ').toLowerCase();
+
+        // 1. Verifica se la riga contiene la dicitura di un mese
+        let foundM = null;
+        for (let mName in monthMap) {
+          if (rowStr.includes(mName)) {
+            foundM = monthMap[mName];
             break;
           }
         }
 
-        if(detectedMonth !== null) {
-          monthsFound.add(detectedMonth);
-          let headerRowIdx = i;
-          let daysRowIdx = i + 1;
-          let dayCols = {};
+        if (foundM !== null) {
+          currentMonthNum = foundM;
+          monthsFound.add(foundM);
+          currentDayCols = {};
 
-          let daysRow = rows[daysRowIdx] || [];
-          for(let col = 0; col < daysRow.length; col++) {
-            let val = String(daysRow[col] || '').trim().replace('.0','');
-            let dNum = parseInt(val, 10);
-            if(!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
-              dayCols[dNum] = col;
-            }
-          }
-
-          let opRowIdx = daysRowIdx + 1;
-          while(opRowIdx < rows.length) {
-            let opRow = rows[opRowIdx] || [];
-            let nameVal = String(opRow[1] || '').trim(); // Nome in colonna B
-
-            if(!nameVal) {
-              opRowIdx++;
-              continue;
-            }
-
-            // Se incontra il mese successivo si ferma
-            let checkStr = opRow.join(' ').toLowerCase();
-            let isNextMonth = false;
-            for(let mName in monthMap) {
-              if(checkStr.includes(mName)) { isNextMonth = true; break; }
-            }
-            if(isNextMonth) break;
-
-            let matchedPerson = findPersonByName(nameVal);
-
-            if(matchedPerson) {
-              const monthStr = String(detectedMonth).padStart(2, '0');
-              const lastDayOfMonth = new Date(currentYear, detectedMonth, 0).getDate();
-
-              for(let d = 1; d <= lastDayOfMonth; d++) {
-                let colIdx = dayCols[d];
-                if(colIdx === undefined) continue;
-
-                let cellVal = String(opRow[colIdx] || '').trim().toUpperCase();
-                let shiftType = shiftMap[cellVal];
-
-                if(shiftType) {
-                  let shiftDate = `${currentYear}-${monthStr}-${String(d).padStart(2, '0')}`;
-                  allParsedShifts.push({
-                    employee_id: matchedPerson.id,
-                    shift_date: shiftDate,
-                    shift_type: shiftType
-                  });
-                }
+          // Leggiamo la riga immediatamente successiva per mappare i giorni (1..31)
+          if (r + 1 < rows.length) {
+            let nextRow = rows[r + 1] || [];
+            for (let c = 0; c < nextRow.length; c++) {
+              let vStr = String(nextRow[c] || '').trim().replace('.0', '');
+              let dNum = parseInt(vStr, 10);
+              if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
+                currentDayCols[dNum] = c;
               }
             }
-            opRowIdx++;
           }
-          i = opRowIdx;
-        } else {
-          i++;
+          continue;
+        }
+
+        // 2. Se stiamo analizzando un mese valido, proviamo a leggere gli operatori
+        if (currentMonthNum !== null && row.length > 0) {
+          let val0 = row[0] || '';
+          let val1 = row[1] || '';
+
+          let matchedPerson = findPerson(val0, val1);
+          if (matchedPerson) {
+            const monthStr = String(currentMonthNum).padStart(2, '0');
+            const lastDayOfMonth = new Date(currentYear, currentMonthNum, 0).getDate();
+
+            for (let d = 1; d <= lastDayOfMonth; d++) {
+              let colIdx = currentDayCols[d];
+              if (colIdx === undefined || colIdx >= row.length) continue;
+
+              let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+              let shiftType = shiftMap[cellVal];
+
+              if (shiftType) {
+                let shiftDate = `${currentYear}-${monthStr}-${String(d).padStart(2, '0')}`;
+                allParsedShifts.push({
+                  employee_id: matchedPerson.id,
+                  shift_date: shiftDate,
+                  shift_type: shiftType
+                });
+              }
+            }
+          }
         }
       }
 
-      if(allParsedShifts.length === 0) {
-        setBanner('Nessun turno trovato. Verificare che il file contenga le intestazioni dei mesi e i nomi degli operatori.', 'error');
+      if (allParsedShifts.length === 0) {
+        setBanner('Nessun turno estratto. Verificare che il file contenga i mesi e i nomi degli operatori.', 'error');
         return;
       }
 
-      setStatus('Pulizia vecchi turni dei mesi rilevati...');
-      setBanner(`Rilevati ${monthsFound.size} mesi nell'Excel. Pulizia in corso...`, '');
+      setStatus('Registrazione turni su Supabase...');
+      setBanner(`Trovati ${allParsedShifts.length} turni su ${monthsFound.size} mesi. Salvataggio in corso...`, '');
 
-      for(let mNum of monthsFound) {
-        let mStr = String(mNum).padStart(2, '0');
-        let lastDay = new Date(currentYear, mNum, 0).getDate();
-        let startDate = `${currentYear}-${mStr}-01`;
-        let endDate = `${currentYear}-${mStr}-${String(lastDay).padStart(2, '0')}`;
-
-        await supabase.from('shifts')
-          .delete()
-          .gte('shift_date', startDate)
-          .lte('shift_date', endDate);
-      }
-
-      setStatus('Inserimento nuovi turni...');
-      setBanner(`Inserimento di ${allParsedShifts.length} turni puliti su Supabase...`, '');
-
+      // Salvataggio a blocchi da 100 per massima stabilità
       const batchSize = 100;
       for (let b = 0; b < allParsedShifts.length; b += batchSize) {
         const batch = allParsedShifts.slice(b, b + batchSize);
         const { error: insErr } = await supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' });
         if(insErr) {
           console.error('Errore inserimento batch:', insErr);
-          setBanner('Errore salvataggio turni: ' + insErr.message, 'error');
+          setBanner('Errore durante il salvataggio: ' + insErr.message, 'error');
           setStatus('Errore DB');
           return;
         }
       }
 
-      let firstMonth = Math.min(...Array.from(monthsFound));
-      anchor = new Date(currentYear, firstMonth - 1, 15, 12);
+      // Posiziona la vista sul primo mese importato
+      if (monthsFound.size > 0) {
+        let firstMonth = Math.min(...Array.from(monthsFound));
+        anchor = new Date(currentYear, firstMonth - 1, 15, 12);
+      }
 
-      setBanner(`Importazione multi-mese completata con successo! Registrati ${allParsedShifts.length} turni su ${monthsFound.size} mesi.`, 'ok');
+      setBanner(`Importazione completata con successo! Inseriti/Aggiornati ${allParsedShifts.length} turni su ${monthsFound.size} mesi.`, 'ok');
       await loadData();
 
     } catch (err) {
-      console.error('Errore file Excel:', err);
+      console.error('Errore lettura file Excel:', err);
       setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
     } finally {
       e.target.value = '';
