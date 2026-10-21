@@ -177,15 +177,16 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
   
-  <!-- TASTO DI IMPORTAZIONE DEDICATO PER IL MESE CORRENTE -->
+  <!-- BOX DI GESTIONE MENSILE (PULIZIA + IMPORTAZIONE) VISIBILE SOLO IN VISTA MESE PER GLI ADMIN -->
   <div id="monthImportContainer" class="hidden" style="padding:16px;background:#f8fafc;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <div>
-      <h4 style="margin:0 0 4px;font-size:14px;color:var(--blue);">📥 Importa Excel per questo Mese</h4>
-      <p style="margin:0;font-size:12px;color:var(--muted);">Carica il file Excel (colonna A con nomi, riga giorni 1, 2, 3... e turni) per il mese visualizzato.</p>
+      <h4 style="margin:0 0 4px;font-size:14px;color:var(--blue);">⚙️ Gestione Mese: <span id="currentMonthNameLabel">questo mese</span></h4>
+      <p style="margin:0;font-size:12px;color:var(--muted);">Puoi pulire i turni esistenti di questo mese o importare il nuovo file Excel pulito.</p>
     </div>
-    <div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button type="button" id="monthClearBtn" class="btn danger" style="background:#fff0f0;color:var(--red);">🗑️ Pulisci Turni di questo Mese</button>
       <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="monthImportBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">Seleziona File per <span id="currentMonthNameLabel">questo mese</span></button>
+      <button type="button" id="monthImportBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
     </div>
   </div>
 
@@ -555,7 +556,7 @@ function render(){
  $('weekTab').classList.toggle('active',view==='week');$('monthTab').classList.toggle('active',view==='month');
 }
 
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;n'}[c]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 async function loadData(){
  setStatus('Caricamento dati...');
@@ -1022,7 +1023,38 @@ $('addPersonForm').onsubmit = async (e) => {
   await loadData();
 };
 
-// --- GESTORE PERFETTO E ALLINEATO PER L'IMPORTAZIONE DEL MESE CORRENTE ---
+// --- PULIZIA TURNI DEL MESE CORRENTE ---
+$('monthClearBtn').onclick = async () => {
+  if(!admin()) { setBanner('Devi essere autenticato come amministratore.', 'error'); return; }
+  const monthName = anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+  if(!confirm(`Vuoi davvero eliminare TUTTI i turni registrati nel database per ${monthName}?`)) return;
+
+  setStatus('Pulizia turni del mese...');
+  setBanner(`Eliminazione turni per ${monthName} in corso...`, '');
+
+  const targetYear = anchor.getFullYear();
+  const targetMonth = anchor.getMonth() + 1;
+  const monthStr = String(targetMonth).padStart(2, '0');
+  const startDate = `${targetYear}-${monthStr}-01`;
+  const lastDay = new Date(targetYear, targetMonth, 0).getDate();
+  const endDate = `${targetYear}-${monthStr}-${pad(lastDay)}`;
+
+  const { error } = await supabase.from('shifts')
+    .delete()
+    .gte('shift_date', startDate)
+    .lte('shift_date', endDate);
+
+  if(error) {
+    setBanner('Errore durante la pulizia dei turni: ' + error.message, 'error');
+    setStatus('Errore DB');
+    return;
+  }
+
+  setBanner(`Turni di ${monthName} eliminati con successo! Ora puoi importare il file pulito.`, 'ok');
+  await loadData();
+};
+
+// --- IMPORTAZIONE EXCEL DEL MESE CORRENTE (CON SUPPORTO COLONNA A NOMI) ---
 $('monthImportBtn').onclick = () => { $('monthExcelFile').click(); };
 
 $('monthExcelFile').onchange = async (e) => {
@@ -1060,13 +1092,13 @@ $('monthExcelFile').onchange = async (e) => {
       };
 
       const targetYear = anchor.getFullYear();
-      const targetMonth = anchor.getMonth() + 1; // 1-12
+      const targetMonth = anchor.getMonth() + 1;
       const monthStr = String(targetMonth).padStart(2, '0');
       const lastDayOfMonth = new Date(targetYear, targetMonth, 0).getDate();
 
       const allDbPeople = [...people, ...archivedPeople];
 
-      // Individua la riga dei giorni (1, 2, 3...) controllando dove si trovano i numeri
+      // Trova la riga dei giorni (1, 2, 3...)
       let dayCols = {};
       let headerRowIdx = -1;
 
@@ -1094,7 +1126,6 @@ $('monthExcelFile').onchange = async (e) => {
 
       let parsedShifts = [];
 
-      // Legge le righe dei dipendenti sotto l'intestazione
       for (let r = headerRowIdx + 1; r < rows.length; r++) {
         let row = rows[r] || [];
         if (row.length === 0) continue;
@@ -1109,7 +1140,6 @@ $('monthExcelFile').onchange = async (e) => {
         });
 
         if (matchedPerson) {
-          // Itera esattamente sui giorni del mese visualizzato (da 1 a lastDayOfMonth)
           for (let d = 1; d <= lastDayOfMonth; d++) {
             let colIdx = dayCols[d];
             if (colIdx === undefined || colIdx >= row.length) continue;
@@ -1135,7 +1165,7 @@ $('monthExcelFile').onchange = async (e) => {
       }
 
       setStatus('Salvataggio su Supabase...');
-      setBanner(`Trovati ${parsedShifts.length} turni allineati per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}. Salvataggio...`, '');
+      setBanner(`Trovati ${parsedShifts.length} turni per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}. Salvataggio in corso...`, '');
 
       const batchSize = 100;
       for (let b = 0; b < parsedShifts.length; b += batchSize) {
@@ -1148,7 +1178,7 @@ $('monthExcelFile').onchange = async (e) => {
         }
       }
 
-      setBanner(`Importazione di ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})} completata con successo e perfettamente allineata!`, 'ok');
+      setBanner(`Importazione di ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})} completata con successo!`, 'ok');
       await loadData();
 
     } catch (err) {
