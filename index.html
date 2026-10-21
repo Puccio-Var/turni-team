@@ -178,7 +178,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
 
-<!-- Pannello Richiesta Smartworking Pubblico (SOTTO LA TABELLA TABELLA TURNI) -->
+<!-- Pannello Richiesta Smartworking Pubblico (Visibile SOLO per Operatori NON Admin) -->
 <section class="panel" id="swPanel" style="background:#f0fdf4;border-color:#bbf7d0;margin-bottom:20px;">
   <div class="panelhead" style="background:#dcfce7;border-bottom-color:#bbf7d0;">
     <div>
@@ -203,7 +203,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
 </section>
 
-<!-- Pannello Gestione / Rimozione Smartworking (Area Riservata ADMIN) -->
+<!-- Pannello Gestione / Rimozione Smartworking (Visibile SOLO per ADMIN) -->
 <section class="panel admin hidden" id="swAdminPanel" style="background:#f0f9ff;border-color:#bae6fd;margin-bottom:20px;">
   <div class="panelhead" style="background:#e0f2fe;border-bottom-color:#bae6fd;">
     <div>
@@ -338,12 +338,14 @@ function updateAuthUI(showLoginForm = false){
   if(admin()){
     $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
     $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
-    $('swAdminPanel').classList.remove('hidden');$('historyPanel').classList.remove('hidden');
+    $('swAdminPanel').classList.remove('hidden');$('swPanel').classList.add('hidden'); // Nasconde il form pubblico se si è admin
+    $('historyPanel').classList.remove('hidden');
     updateHistoryDropdown();
     updateSwAdminDropdown();
   } else {
     $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
-    $('swAdminPanel').classList.add('hidden');$('historyPanel').classList.add('hidden');
+    $('swAdminPanel').classList.add('hidden');$('swPanel').classList.remove('hidden'); // Mostra il form pubblico se NON si è admin
+    $('historyPanel').classList.add('hidden');
     if(showLoginForm){
       $('loginOpen').classList.add('hidden');
       $('topLoginForm').classList.remove('hidden');$('email').focus();
