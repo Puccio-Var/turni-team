@@ -290,15 +290,37 @@ function updateAuthUI(showLoginForm = false){
 }
 
 function updatePersonDropdown(){
+  const allActiveOrWithShifts = getDisplayPeople();
   const select = $('filterPerson');
   select.innerHTML = '<option value="">👤 Tutti gli operatori</option>' + 
-    people.map(p=>`<option value="${p.id}" ${selectedPersonId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+    allActiveOrWithShifts.map(p=>`<option value="${p.id}" ${selectedPersonId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
 }
 
 function updateHistoryDropdown(){
+  const allPeopleList = [...people, ...archivedPeople];
   const select = $('histPerson');
   select.innerHTML = '<option value="">Seleziona operatore...</option>' + 
-    people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+    allPeopleList.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+// Restituisce gli utenti attivi + eventuali archiviati che hanno turni nel periodo in visualizzazione
+function getDisplayPeople(){
+  const dates = datesInView();
+  const startIso = iso(dates[0]);
+  const endIso = iso(dates[dates.length - 1]);
+
+  let activeIds = new Set(people.map(p => p.id));
+  
+  // Trova gli archiviati che hanno almeno un turno nel range visualizzato
+  let archivedWithShifts = archivedPeople.filter(ap => {
+    return shifts.some(s => s.employee_id === ap.id && s.shift_date >= startIso && s.shift_date <= endIso);
+  });
+
+  // Unisce gli attivi e gli archiviati pertinenti a questo periodo
+  let combined = [...people, ...archivedWithShifts];
+  // Ordina alfabeticamente
+  combined.sort((a, b) => a.name.localeCompare(b.name));
+  return combined;
 }
 
 function render(){
@@ -308,17 +330,18 @@ function render(){
  updatePersonDropdown();
  if(admin()) updateHistoryDropdown();
  
- const visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
+ const displayPeople = getDisplayPeople();
+ const visiblePeople = selectedPersonId ? displayPeople.filter(p=>p.id===selectedPersonId) : displayPeople;
  const rosterTable = $('roster');
  rosterTable.className = view === 'month' ? 'month-view' : '';
  
- // Calcola copertura per ciascun giorno (0 o 1 op. nei turni principali)
+ // Calcola copertura per ciascun giorno considerando tutti gli operatori visibili nel periodo
  let head='<tr><th>Collega</th>'+dates.map(d=>{
    const dIso = iso(d);
    const isSel = dIso === selectedDateIso;
    
    let counts = { Mattina: 0, Pomeriggio: 0, Notte: 0 };
-   people.forEach(p => {
+   displayPeople.forEach(p => {
      let s = getShift(p.id, dIso);
      if(counts[s] !== undefined) counts[s]++;
    });
@@ -372,13 +395,17 @@ function render(){
    $('resetFilterContainer').classList.add('hidden');
  }
  
- rosterTable.querySelector('tbody').innerHTML=visiblePeople.map(p=>`<tr><td>
+ rosterTable.querySelector('tbody').innerHTML=visiblePeople.map(p=>{
+   let isArchived = archivedPeople.some(ap => ap.id === p.id);
+   let archiveLabel = isArchived ? ' <span style="font-size:9px;color:var(--muted);">(Archiviato)</span>' : '';
+
+   return `<tr><td>
     <div class="person">
       <div class="person-info ${selectedPersonId===p.id?'active-person':''}" data-person-click="${p.id}" title="Clicca per isolare questo operatore">
         <div class="avatar">${p.name.trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}</div>
-        <b>${escapeHtml(p.name)}</b>
+        <b>${escapeHtml(p.name)}</b>${archiveLabel}
       </div>
-      ${admin()?`<button class="btn-del" data-remove-id="${p.id}" title="Archivia operatore">📦</button>`:''}
+      ${admin() && !isArchived ? `<button class="btn-del" data-remove-id="${p.id}" title="Archivia operatore">📦</button>` : ''}
     </div>
   </td>`+dates.map(d=>{
     let dIso = iso(d);
@@ -387,14 +414,14 @@ function render(){
     let isFilteredOut = activeShiftFilter && s !== activeShiftFilter;
     
     return `<td data-date-col="${dIso}" class="${isSel?'selected-day':''}"><select class="shift ${s||'none'} ${isFilteredOut?'filtered-out':''}" data-person="${p.id}" data-date="${dIso}" ${admin()?'':'disabled'} aria-label="${escapeHtml(p.name)} ${dIso}"><option value="">—</option>${types.map(t=>`<option value="${t}" ${s===t?'selected':''}>${t}</option>`).join('')}</select></td>`
-  }).join('')+'</tr>').join('');
+  }).join('')+'</tr>'}).join('');
  
  rosterTable.querySelectorAll('select').forEach(el=>el.addEventListener('change',async e=>{if(!admin())return;await setShift(e.target.dataset.person,e.target.dataset.date,e.target.value)}));
  
  rosterTable.querySelectorAll('.btn-del').forEach(el=>el.addEventListener('click',async e=>{
    const pId=e.target.dataset.removeId;
    const pName=people.find(p=>p.id===pId)?.name || 'questo collega';
-   if(confirm(`Vuoi archiviare/disabilitare ${pName}? L'operatore non comparirà più nel calendario corrente ma lo storico dei suoi turni verrà mantenuto.`)){
+   if(confirm(`Vuoi archiviare/disabilitare ${pName}? L'operatore non comparirà più nei mesi futuri ma lo storico dei suoi turni passati rimarrà visibile.`)){
      await archivePerson(pId);
    }
  }));
@@ -479,7 +506,7 @@ async function archivePerson(personId){
  setStatus('Archiviazione in corso…');
  const {error}=await supabase.from('employees').update({active:false}).eq('id',personId);
  if(error){setBanner('Errore durante l\'archiviazione: '+error.message,'error');return}
- setBanner('Operatore archiviato con successo (lo storico turni è rimasto intatto).','ok');
+ setBanner('Operatore archiviato con successo. I suoi turni passati rimarranno visibili nei mesi di competenza.','ok');
  if(selectedPersonId===personId) selectedPersonId='';
  await loadData();
 }
@@ -699,6 +726,7 @@ $('excelFile').onchange = async (e) => {
       const year = anchor.getFullYear();
       const month = anchor.getMonth() + 1;
       let rawUpsertList = [];
+      const allPeopleList = [...people, ...archivedPeople];
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
         let row = rows[i];
@@ -706,7 +734,7 @@ $('excelFile').onchange = async (e) => {
         let empNameRaw = String(row[0] || '').trim();
         if(!empNameRaw) continue;
 
-        let matchedPerson = people.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+        let matchedPerson = allPeopleList.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
 
         if(!matchedPerson) continue;
 
@@ -730,7 +758,6 @@ $('excelFile').onchange = async (e) => {
         }
       }
 
-      // Rimuove duplicati basati su employee_id + shift_date
       let uniqueMap = new Map();
       rawUpsertList.forEach(item => {
         let key = `${item.employee_id}_${item.shift_date}`;
@@ -768,7 +795,8 @@ $('excelFile').onchange = async (e) => {
 
 $('csv').onclick=()=>{
   let dates=datesInView();
-  let visiblePeople = selectedPersonId ? people.filter(p=>p.id===selectedPersonId) : people;
+  let displayPeople = getDisplayPeople();
+  let visiblePeople = selectedPersonId ? displayPeople.filter(p=>p.id===selectedPersonId) : displayPeople;
   let rows=[['Collega',...dates.map(iso)]];
   visiblePeople.forEach(p=>rows.push([p.name,...dates.map(d=>getShift(p.id,iso(d))||'—')]));
   let csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
