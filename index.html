@@ -9,7 +9,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{background:#14213d;color:white;padding:22px max(24px,calc((100% - 98%) / 2))}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.title{font-size:26px;font-weight:800;margin:0}
 main{max-width:98%;margin:24px auto;padding:0 12px}
-.toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:#f2caca}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
+.toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:var(--f2caca)}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
 
 .stats-header{font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:6px;justify-content:space-between}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
@@ -413,13 +413,9 @@ function getDisplayPeople(){
   let allList = [...people, ...archivedPeople];
 
   return allList.filter(p => {
-    // Se ha una data di start_date successiva alla fine del mese visualizzato, non mostrarlo
     if(p.start_date && p.start_date > monthEndIso) return false;
-    // Se ha una data di last_day precedente all'inizio del mese visualizzato, non mostrarlo
     if(p.last_day && p.last_day < monthStartIso) return false;
-    // Oppure se ha turni registrati in questo intervallo esatto
     let hasShiftsInView = shifts.some(s => s.employee_id === p.id && s.shift_date >= startIso && s.shift_date <= endIso);
-    
     let isCurrentlyActive = people.some(ap => ap.id === p.id);
     return isCurrentlyActive || hasShiftsInView || (p.start_date && p.start_date <= monthEndIso);
   });
@@ -518,11 +514,9 @@ function render(){
   </td>`+dates.map(d=>{
     let dIso = iso(d);
     
-    // Se la data è antecedente alla data di inizio dell'operatore, mostra cella disabilitata o vuota
     if(p.start_date && dIso < p.start_date) {
       return `<td data-date-col="${dIso}"><span style="color:#cbd5e1;font-size:10px;">—</span></td>`;
     }
-    // Se la data è successiva all'ultimo giorno di lavoro, mostra cella vuota
     if(p.last_day && dIso > p.last_day) {
       return `<td data-date-col="${dIso}"><span style="color:#cbd5e1;font-size:10px;">—</span></td>`;
     }
@@ -1095,7 +1089,7 @@ $('monthExcelFile').onchange = async (e) => {
       const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
       if(rows.length < 2) {
-        setBanner('Il file Excel sembra vuoto.', 'error');
+        setBanner('Le file Excel sembra vuoto.', 'error');
         return;
       }
 
@@ -1162,7 +1156,6 @@ $('monthExcelFile').onchange = async (e) => {
         });
 
         if (matchedPerson) {
-          // Salta se l'operatore non è ancora attivo in questo mese o ha già terminato
           if (matchedPerson.start_date && matchedPerson.start_date > monthEndIso) continue;
           if (matchedPerson.last_day && matchedPerson.last_day < monthStartIso) continue;
 
@@ -1172,7 +1165,6 @@ $('monthExcelFile').onchange = async (e) => {
 
             let shiftDate = `${targetYear}-${monthStr}-${String(d).padStart(2, '0')}`;
             
-            // Non importare turni precedenti alla data di inizio o successivi alla fine
             if (matchedPerson.start_date && shiftDate < matchedPerson.start_date) continue;
             if (matchedPerson.last_day && shiftDate > matchedPerson.last_day) continue;
 
