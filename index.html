@@ -606,16 +606,13 @@ async function setShift(personId,date,type){
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
 
-// Funzione di verifica regole completa che scarica i dati da Supabase per qualsiasi data
 async function checkSmartworkingEligibility(personId, reqDate) {
-  // 1. Controllo Domenica
   const [y, m, d] = reqDate.split('-');
   const dateObj = new Date(y, m - 1, d, 12);
-  if(dateObj.getDay() === 0) { // 0 = Domenica
+  if(dateObj.getDay() === 0) {
     return { valid: false, reason: 'Di Domenica non è previsto lo Smartworking.' };
   }
 
-  // Scarica da Supabase i turni reali e le richieste di SW per la data esatta
   const [shiftsRes, swRes] = await Promise.all([
     supabase.from('shifts').select('employee_id, shift_type').eq('shift_date', reqDate),
     supabase.from('smartworking_requests').select('employee_id, shift_type').eq('request_date', reqDate)
@@ -628,7 +625,6 @@ async function checkSmartworkingEligibility(personId, reqDate) {
   const dateShifts = shiftsRes.data || [];
   const dateSw = swRes.data || [];
 
-  // 2. Controllo Turno dell'operatore (Deve essere Mattina o Pomeriggio)
   const userShiftRecord = dateShifts.find(s => s.employee_id === personId);
   const userShift = userShiftRecord?.shift_type;
 
@@ -636,19 +632,16 @@ async function checkSmartworkingEligibility(personId, reqDate) {
     return { valid: false, reason: `L'operatore non è in turno di Mattina o Pomeriggio in questa data (Turno attuale: ${userShift || 'Nessuno'}).` };
   }
 
-  // 3. Controllo se ha già uno Smartworking attivo per se stesso
   const alreadyOwn = dateSw.some(sw => sw.employee_id === personId);
   if(alreadyOwn) {
     return { valid: false, reason: 'L\'operatore ha già uno Smartworking attivo per questa data.' };
   }
 
-  // 4. Presenza Minima in Ufficio (Contiamo quanti operatori sono in quel turno)
   const totalInShift = dateShifts.filter(s => s.shift_type === userShift).length;
   if(totalInShift <= 2) {
     return { valid: false, reason: `Presenza minima in ufficio non garantita: ci sono solo ${totalInShift} operatori in turno di ${userShift}. Devono rimanere in ufficio almeno 2 persone.` };
   }
 
-  // 5. Conflitto con altro collega nello stesso turno
   const conflict = dateSw.some(sw => {
     const otherShift = dateShifts.find(s => s.employee_id === sw.employee_id);
     return otherShift && otherShift.shift_type === userShift;
@@ -661,7 +654,6 @@ async function checkSmartworkingEligibility(personId, reqDate) {
   return { valid: true, shiftType: userShift, totalInShift };
 }
 
-// Validazione Interattiva nel Form Pubblico
 async function validatePublicSwSelection() {
   const personId = $('swPerson').value;
   const reqDate = $('swDate').value;
@@ -690,7 +682,6 @@ async function validatePublicSwSelection() {
   }
 }
 
-// LOGICA ADMIN: Mostra i badge degli Smartworking attivi per l'operatore
 function updateAdminSwBadges() {
   const personId = $('swAdminPerson').value;
   const container = $('swAdminActiveContainer');
@@ -749,7 +740,6 @@ $('swAdminPerson').onchange = () => {
 };
 $('swAdminDate').onchange = validateAdminSwSelection;
 
-// Invia Richiesta Pubblica Smartworking con doppia sicurezza
 $('swForm').onsubmit = async (e) => {
   e.preventDefault();
   const personId = $('swPerson').value;
@@ -781,7 +771,6 @@ $('swForm').onsubmit = async (e) => {
   validatePublicSwSelection();
 };
 
-// Assegnazione Admin Smartworking
 $('swAdminAddBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
   const reqDate = $('swAdminDate').value;
@@ -811,7 +800,6 @@ $('swAdminAddBtn').onclick = async () => {
   updateAdminSwBadges();
 };
 
-// Rimozione Admin Smartworking
 $('swAdminRemoveBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
   const reqDate = $('swAdminDate').value;
@@ -1017,6 +1005,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
+// --- MOTORE DI IMPORTAZIONE EXCEL ROBUSTO E PRECISO ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1034,9 +1023,28 @@ $('excelFile').onchange = async (e) => {
 
       let headerRowIdx = -1;
       let dayColumns = {};
+      let detectedYear = anchor.getFullYear();
+      let detectedMonth = anchor.getMonth() + 1;
 
+      // 1. Cerca la riga contenente i giorni (1, 2, 3...) e individua mese/anno
       for(let i=0; i<rows.length; i++) {
         let row = rows[i];
+        let rowStr = row.join(' ').toLowerCase();
+        
+        // Rileva eventuale mese dalle celle (es. "settembre", "september", etc.)
+        if(rowStr.includes('settembre') || rowStr.includes('sep')) detectedMonth = 9;
+        else if(rowStr.includes('gennaio')) detectedMonth = 1;
+        else if(rowStr.includes('febbraio')) detectedMonth = 2;
+        else if(rowStr.includes('marzo')) detectedMonth = 3;
+        else if(rowStr.includes('aprile')) detectedMonth = 4;
+        else if(rowStr.includes('maggio')) detectedMonth = 5;
+        else if(rowStr.includes('giugno')) detectedMonth = 6;
+        else if(rowStr.includes('luglio')) detectedMonth = 7;
+        else if(rowStr.includes('agosto')) detectedMonth = 8;
+        else if(rowStr.includes('ottobre')) detectedMonth = 10;
+        else if(rowStr.includes('novembre')) detectedMonth = 11;
+        else if(rowStr.includes('dicembre')) detectedMonth = 12;
+
         for(let j=0; j<row.length; j++) {
           let val = String(row[j] || '').trim().replace('.0','');
           if(val === '1' || val === '01') {
@@ -1069,10 +1077,12 @@ $('excelFile').onchange = async (e) => {
         'D': 'Diurno', 'DIURNO': 'Diurno'
       };
 
-      const year = anchor.getFullYear();
-      const month = anchor.getMonth() + 1;
+      const monthStr = String(detectedMonth).padStart(2, '0');
       let rawUpsertList = [];
       const allPeopleList = [...people, ...archivedPeople];
+
+      // Funzione di normalizzazione dei nomi per il matching infallibile
+      const cleanName = (n) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
 
       for(let i = headerRowIdx + 1; i < rows.length; i++) {
         let row = rows[i];
@@ -1080,7 +1090,13 @@ $('excelFile').onchange = async (e) => {
         let empNameRaw = String(row[0] || '').trim();
         if(!empNameRaw) continue;
 
-        let matchedPerson = allPeopleList.find(p => p.name.toLowerCase() === empNameRaw.toLowerCase() || p.name.toLowerCase().includes(empNameRaw.toLowerCase()) || empNameRaw.toLowerCase().includes(p.name.toLowerCase()));
+        let cleanExcelName = cleanName(empNameRaw);
+
+        let matchedPerson = allPeopleList.find(p => {
+          let cleanDbName = cleanName(p.name);
+          // Controlla corrispondenza esatta o se contiene le parti del nome
+          return cleanDbName === cleanExcelName || cleanDbName.includes(cleanExcelName) || cleanExcelName.includes(cleanDbName);
+        });
 
         if(!matchedPerson) continue;
 
@@ -1092,8 +1108,7 @@ $('excelFile').onchange = async (e) => {
           let shiftType = shiftMap[cellVal];
           if(shiftType) {
             let dayStr = String(day).padStart(2, '0');
-            let monthStr = String(month).padStart(2, '0');
-            let shiftDate = `${year}-${monthStr}-${dayStr}`;
+            let shiftDate = `${detectedYear}-${monthStr}-${dayStr}`;
             
             rawUpsertList.push({
               employee_id: matchedPerson.id,
@@ -1112,7 +1127,7 @@ $('excelFile').onchange = async (e) => {
       let upsertList = Array.from(uniqueMap.values());
 
       if(upsertList.length === 0) {
-        setBanner('Nessun turno valido trovato da importare per il mese corrente.', 'error');
+        setBanner('Nessun turno valido trovato da importare per il mese.', 'error');
         setStatus('Nessun dato');
         return;
       }
@@ -1126,7 +1141,10 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
-      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni.`, 'ok');
+      // Sposta il calendario visualizzato esattamente sul mese importato per vederlo subito
+      anchor = new Date(detectedYear, detectedMonth - 1, 15, 12);
+
+      setBanner(`Importazione completata con successo! Inseriti/aggiornati ${upsertList.length} turni per il mese di Settembre.`, 'ok');
       await loadData();
 
     } catch (err) {
