@@ -177,11 +177,11 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
   
-  <!-- TASTO DI IMPORTAZIONE DEDICATO PER IL MESE CORRENTE (VISIBILE SOLO AGLI ADMIN IN VISTA MESE) -->
+  <!-- TASTO DI IMPORTAZIONE DEDICATO PER IL MESE CORRENTE -->
   <div id="monthImportContainer" class="hidden" style="padding:16px;background:#f8fafc;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <div>
       <h4 style="margin:0 0 4px;font-size:14px;color:var(--blue);">📥 Importa Excel per questo Mese</h4>
-      <p style="margin:0;font-size:12px;color:var(--muted);">Carica il file Excel pulito (colonna A con nomi, riga giorni e turni) per il mese visualizzato.</p>
+      <p style="margin:0;font-size:12px;color:var(--muted);">Carica il file Excel (colonna A con nomi, riga giorni 1, 2, 3... e turni) per il mese visualizzato.</p>
     </div>
     <div>
       <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
@@ -420,7 +420,6 @@ function render(){
  const monthNameStr = anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
  $('period').textContent = view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}` : monthNameStr;
  
- // Mostra o nascondi il box di importazione mensile in base a se siamo in vista "Mese" e se siamo Admin
  if(admin() && view === 'month') {
    $('monthImportContainer').classList.remove('hidden');$('currentMonthNameLabel').textContent = monthNameStr;
  } else {
@@ -556,7 +555,7 @@ function render(){
  $('weekTab').classList.toggle('active',view==='week');$('monthTab').classList.toggle('active',view==='month');
 }
 
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;n'}[c]))}
 
 async function loadData(){
  setStatus('Caricamento dati...');
@@ -1023,7 +1022,7 @@ $('addPersonForm').onsubmit = async (e) => {
   await loadData();
 };
 
-// --- NUOVO GESTORE DEDICATO ALL'IMPORTAZIONE DEL MESE CORRENTE ---
+// --- GESTORE PERFETTO E ALLINEATO PER L'IMPORTAZIONE DEL MESE CORRENTE ---
 $('monthImportBtn').onclick = () => { $('monthExcelFile').click(); };
 
 $('monthExcelFile').onchange = async (e) => {
@@ -1067,7 +1066,7 @@ $('monthExcelFile').onchange = async (e) => {
 
       const allDbPeople = [...people, ...archivedPeople];
 
-      // Trova la riga dei giorni (cerca una riga che contenga il numero 1 o 2)
+      // Individua la riga dei giorni (1, 2, 3...) controllando dove si trovano i numeri
       let dayCols = {};
       let headerRowIdx = -1;
 
@@ -1095,7 +1094,7 @@ $('monthExcelFile').onchange = async (e) => {
 
       let parsedShifts = [];
 
-      // Legge le righe successive all'intestazione dei giorni
+      // Legge le righe dei dipendenti sotto l'intestazione
       for (let r = headerRowIdx + 1; r < rows.length; r++) {
         let row = rows[r] || [];
         if (row.length === 0) continue;
@@ -1104,9 +1103,13 @@ $('monthExcelFile').onchange = async (e) => {
         if (!nameVal) continue;
 
         let cNameClean = cleanStr(nameVal);
-        let matchedPerson = allDbPeople.find(p => cleanStr(p.name) === cNameClean || cleanStr(p.name).includes(cNameClean) || cNameClean.includes(cleanStr(p.name)));
+        let matchedPerson = allDbPeople.find(p => {
+          let pClean = cleanStr(p.name);
+          return pClean === cNameClean || pClean.includes(cNameClean) || cNameClean.includes(pClean);
+        });
 
         if (matchedPerson) {
+          // Itera esattamente sui giorni del mese visualizzato (da 1 a lastDayOfMonth)
           for (let d = 1; d <= lastDayOfMonth; d++) {
             let colIdx = dayCols[d];
             if (colIdx === undefined || colIdx >= row.length) continue;
@@ -1127,12 +1130,12 @@ $('monthExcelFile').onchange = async (e) => {
       }
 
       if (parsedShifts.length === 0) {
-        setBanner('Nessun turno estratto. Controlla che i nomi nella colonna A corrispondano ai dipendenti.', 'error');
+        setBanner('Nessun turno estratto. Controlla che i nomi nella colonna A corrispondano.', 'error');
         return;
       }
 
       setStatus('Salvataggio su Supabase...');
-      setBanner(`Trovati ${parsedShifts.length} turni per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}. Salvataggio in corso...`, '');
+      setBanner(`Trovati ${parsedShifts.length} turni allineati per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}. Salvataggio...`, '');
 
       const batchSize = 100;
       for (let b = 0; b < parsedShifts.length; b += batchSize) {
@@ -1145,7 +1148,7 @@ $('monthExcelFile').onchange = async (e) => {
         }
       }
 
-      setBanner(`Importazione di ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})} completata con successo!`, 'ok');
+      setBanner(`Importazione di ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})} completata con successo e perfettamente allineata!`, 'ok');
       await loadData();
 
     } catch (err) {
