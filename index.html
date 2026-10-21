@@ -1002,7 +1002,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE PARSER UNICO PER TUTTI I MESI DALL'EXCEL ---
+// --- MOTORE PARSER CORRETTO (MATCH ESATTO SUL NOME DELLA COLONNA B) ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1048,10 +1048,10 @@ $('excelFile').onchange = async (e) => {
       let monthsFound = new Set();
       const allDbPeople = [...people, ...archivedPeople];
 
-      // Mappatura ID/Nome per matching perfetto
-      const findPerson = (codeVal, nameVal) => {
-        let cleanCode = cleanStr(codeVal);
+      // Funzione di matching basata unicamente sul Nome (Colonna B)
+      const findPersonByName = (nameVal) => {
         let cleanName = cleanStr(nameVal);
+        if(!cleanName) return null;
 
         return allDbPeople.find(p => {
           let pClean = cleanStr(p.name);
@@ -1090,10 +1090,12 @@ $('excelFile').onchange = async (e) => {
           let opRowIdx = daysRowIdx + 1;
           while(opRowIdx < rows.length) {
             let opRow = rows[opRowIdx] || [];
-            let codeVal = String(opRow[0] || '').trim();
-            let nameVal = String(opRow[1] || '').trim();
+            let nameVal = String(opRow[1] || '').trim(); // Nome in colonna B
 
-            if(!codeVal && !nameVal) break;
+            if(!nameVal) {
+              opRowIdx++;
+              continue;
+            }
 
             // Se incontra il mese successivo si ferma
             let checkStr = opRow.join(' ').toLowerCase();
@@ -1103,7 +1105,7 @@ $('excelFile').onchange = async (e) => {
             }
             if(isNextMonth) break;
 
-            let matchedPerson = findPerson(codeVal, nameVal);
+            let matchedPerson = findPersonByName(nameVal);
 
             if(matchedPerson) {
               const monthStr = String(detectedMonth).padStart(2, '0');
@@ -1135,14 +1137,13 @@ $('excelFile').onchange = async (e) => {
       }
 
       if(allParsedShifts.length === 0) {
-        setBanner('Nessun turno trovato. Verificare che il file contenga le intestazioni dei mesi.', 'error');
+        setBanner('Nessun turno trovato. Verificare che il file contenga le intestazioni dei mesi e i nomi degli operatori.', 'error');
         return;
       }
 
       setStatus('Pulizia vecchi turni dei mesi rilevati...');
       setBanner(`Rilevati ${monthsFound.size} mesi nell'Excel. Pulizia in corso...`, '');
 
-      // STEP 1: Cancellazione pulita dei soli mesi trovati nel file
       for(let mNum of monthsFound) {
         let mStr = String(mNum).padStart(2, '0');
         let lastDay = new Date(currentYear, mNum, 0).getDate();
@@ -1158,7 +1159,6 @@ $('excelFile').onchange = async (e) => {
       setStatus('Inserimento nuovi turni...');
       setBanner(`Inserimento di ${allParsedShifts.length} turni puliti su Supabase...`, '');
 
-      // STEP 2: Inserimento in batch da 100 elementi
       const batchSize = 100;
       for (let b = 0; b < allParsedShifts.length; b += batchSize) {
         const batch = allParsedShifts.slice(b, b + batchSize);
@@ -1171,7 +1171,6 @@ $('excelFile').onchange = async (e) => {
         }
       }
 
-      // Imposta il calendario al primo mese del caricamento
       let firstMonth = Math.min(...Array.from(monthsFound));
       anchor = new Date(currentYear, firstMonth - 1, 15, 12);
 
