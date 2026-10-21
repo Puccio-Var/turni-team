@@ -336,7 +336,7 @@ const $=id=>document.getElementById(id);
 const addDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
 const monday=d=>{let x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
 const labelDate=d=>d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
-function setBanner(text,kind=''){ $('banner').textContent=text;$('banner'].className='banner '+kind; }
+function setBanner(text,kind=''){ $('banner').textContent=text; $('banner').className='banner '+kind; }
 function setStatus(t){$('status').textContent=t}
 function datesInView(){if(view==='week'){let s=monday(anchor);return Array.from({length:7},(_,i)=>addDays(s,i))}let first=new Date(anchor.getFullYear(),anchor.getMonth(),1,12),last=new Date(anchor.getFullYear(),anchor.getMonth()+1,0,12);return Array.from({length:last.getDate()},(_,i)=>addDays(first,i))}
 function getShift(personId,dateIso){return shifts.find(s=>s.employee_id===personId&&s.shift_date===dateIso)?.shift_type||''}
