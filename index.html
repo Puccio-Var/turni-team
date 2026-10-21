@@ -130,6 +130,13 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     <h2 id="period">Calendario</h2>
   </div>
   <div class="right">
+    <!-- PULSANTI ADMIN VISIBILI IN ALTO QUANDO SI E' LOGGATI -->
+    <div id="adminActionButtons" class="hidden" style="display:flex;gap:6px;align-items:center;">
+      <button type="button" id="monthClearBtn" class="btn danger" style="padding:8px 12px;font-size:12px;">🗑️ Pulisci Mese</button>
+      <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
+      <button type="button" id="monthImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
+    </div>
+
     <select id="filterPerson" class="field" style="min-width:170px;padding:9px 12px;">
       <option value="">👤 Tutti gli operatori</option>
     </select>
@@ -176,20 +183,6 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     </div>
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
-  
-  <!-- BOX DI GESTIONE MENSILE (PULIZIA + IMPORTAZIONE) VISIBILE SOLO IN VISTA MESE PER GLI ADMIN -->
-  <div id="monthImportContainer" class="hidden" style="padding:16px;background:#f8fafc;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-    <div>
-      <h4 style="margin:0 0 4px;font-size:14px;color:var(--blue);">⚙️ Gestione Mese: <span id="currentMonthNameLabel">questo mese</span></h4>
-      <p style="margin:0;font-size:12px;color:var(--muted);">Puoi pulire i turni esistenti di questo mese o importare il nuovo file Excel pulito.</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button type="button" id="monthClearBtn" class="btn danger" style="background:#fff0f0;color:var(--red);">🗑️ Pulisci Turni di questo Mese</button>
-      <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="monthImportBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
-    </div>
-  </div>
-
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
 
@@ -357,16 +350,16 @@ function admin(){return !!session}
 
 function updateAuthUI(showLoginForm = false){
   if(admin()){
-    $('loginOpen').classList.add('hidden');
-    $('topLoginForm').classList.add('hidden');$('loggedInHeader').classList.remove('hidden');
-    $('adminPanel').classList.remove('hidden');$('swAdminPanel').classList.remove('hidden');
-    $('swPanel').classList.add('hidden');$('historyPanel').classList.remove('hidden');
+    $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
+    $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
+    $('swAdminPanel').classList.remove('hidden');$('swPanel').classList.add('hidden');
+    $('historyPanel').classList.remove('hidden');$('adminActionButtons').classList.remove('hidden');
     updateHistoryDropdown();
     updateSwAdminDropdown();
   } else {
-    $('loggedInHeader').classList.add('hidden');
-    $('adminPanel').classList.add('hidden');$('swAdminPanel').classList.add('hidden');
-    $('swPanel').classList.remove('hidden');$('historyPanel').classList.add('hidden');
+    $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
+    $('swAdminPanel').classList.add('hidden');$('swPanel').classList.remove('hidden');
+    $('historyPanel').classList.add('hidden');$('adminActionButtons').classList.add('hidden');
     if(showLoginForm){
       $('loginOpen').classList.add('hidden');
       $('topLoginForm').classList.remove('hidden');$('email').focus();
@@ -420,12 +413,6 @@ function render(){
  const dates=datesInView();
  const monthNameStr = anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
  $('period').textContent = view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}` : monthNameStr;
- 
- if(admin() && view === 'month') {
-   $('monthImportContainer').classList.remove('hidden');$('currentMonthNameLabel').textContent = monthNameStr;
- } else {
-   $('monthImportContainer').classList.add('hidden');
- }
  
  updatePersonDropdown();
  updateSwDropdown();
@@ -1054,7 +1041,7 @@ $('monthClearBtn').onclick = async () => {
   await loadData();
 };
 
-// --- IMPORTAZIONE EXCEL DEL MESE CORRENTE (CON SUPPORTO COLONNA A NOMI) ---
+// --- IMPORTAZIONE EXCEL DEL MESE CORRENTE ---
 $('monthImportBtn').onclick = () => { $('monthExcelFile').click(); };
 
 $('monthExcelFile').onchange = async (e) => {
@@ -1098,7 +1085,6 @@ $('monthExcelFile').onchange = async (e) => {
 
       const allDbPeople = [...people, ...archivedPeople];
 
-      // Trova la riga dei giorni (1, 2, 3...)
       let dayCols = {};
       let headerRowIdx = -1;
 
