@@ -568,14 +568,28 @@ function render(){
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
+// Supabase restituisce al massimo 1000 righe per richiesta: leggiamo a pagine finché finiscono
+async function fetchAllRows(table, columns, orderCol){
+  const pageSize = 1000;
+  let from = 0, all = [];
+  while(true){
+    const { data, error } = await supabase.from(table).select(columns).order(orderCol).order('employee_id').range(from, from + pageSize - 1);
+    if(error) return { data: null, error };
+    all = all.concat(data || []);
+    if(!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 async function loadData(){
  setStatus('Caricamento dati...');
  try {
    const [pr, ar, sr, swr]=await Promise.all([
      supabase.from('employees').select('id,name,last_day,start_date').eq('active',true).order('name'),
      supabase.from('employees').select('id,name,last_day,start_date').eq('active',false).order('name'),
-     supabase.from('shifts').select('employee_id,shift_date,shift_type'),
-     supabase.from('smartworking_requests').select('employee_id,request_date,shift_type')
+     fetchAllRows('shifts','employee_id,shift_date,shift_type','shift_date'),
+     fetchAllRows('smartworking_requests','employee_id,request_date,shift_type','request_date')
    ]);
 
    if(pr.error || sr.error || ar.error || swr.error){
