@@ -37,11 +37,16 @@ th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:1
 .person-info.active-person{background:#e2ecfe;outline:1px solid #2457d6}
 .avatar{width:26px;height:26px;border-radius:6px;background:#eaf0ff;color:#2851b0;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0;pointer-events:none}.person b{font-size:11px;pointer-events:none}.btn-del{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px}.btn-del:hover{background:#ffebeb;color:var(--red)}
 
-.shift{width:100%;max-width:110px;border:0;border-radius:6px;padding:6px 2px;font-weight:750;font-size:11px;appearance:none;text-align:center;background-image:none}
+.shift-cell-container { position: relative; display: inline-block; width: 100%; max-width: 110px; }
+.shift{width:100%;border:0;border-radius:6px;padding:6px 2px;font-weight:750;font-size:11px;appearance:none;text-align:center;background-image:none}
 .shift:disabled{opacity:1}.shift:not(:disabled){cursor:pointer;outline:1px solid #ccd6e5}
 
+/* Flag Smartworking ad angolo */
+.sw-badge { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; background: #0284c7; border: 2px solid #fff; border-radius: 50%; z-index: 3; }
+
 table.month-view th, table.month-view td { padding: 5px 2px; }
-table.month-view .shift { font-size: 10px; padding: 6px 1px; border-radius: 4px; max-width: 55px; }
+table.month-view .shift { font-size: 10px; padding: 6px 1px; border-radius: 4px; }
+table.month-view .shift-cell-container { max-width: 55px; }
 table.month-view th { font-size: 10px; }
 table.month-view .date { font-size: 11px; }
 table.month-view th:first-child, table.month-view td:first-child { min-width: 150px; }
@@ -66,7 +71,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 @media print {
   body { background: #fff; color: #000; font-size: 10px; }
-  header, .toolbar, .banner, .stats-header, .stats, .panelhead p, .foot, .admin, .btn-del, #authContainer { display: none !important; }
+  header, .toolbar, .banner, .stats-header, .stats, .panelhead p, .foot, .admin, .btn-del, #authContainer, #swPanel { display: none !important; }
   main { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
   .panel { border: 0; box-shadow: none; }
   .panelhead { padding: 0 0 10px 0; border: 0; }
@@ -81,6 +86,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   .Ferie { background: #fef08a !important; color: #854d0e !important; }
   .Malattia { background: #ffe0e0 !important; color: #9b2525 !important; }
   .Diurno { background: #f8fafc !important; color: #334155 !important; }
+  .sw-badge { border: 1px solid #000 !important; background: #0284c7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .none { background: #fff !important; color: #ccc !important; }
 }
 
@@ -114,6 +120,31 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 <main>
 <div id="banner" class="banner">Connessione al database in corso...</div>
+
+<!-- Pannello Richiesta Smartworking per Operatori -->
+<section class="panel" id="swPanel" style="background:#f0fdf4;border-color:#bbf7d0;margin-bottom:20px;">
+  <div class="panelhead" style="background:#dcfce7;border-bottom-color:#bbf7d0;">
+    <div>
+      <h3 style="color:#166534;">💻 Richiesta Smartworking (Area Operatori)</h3>
+      <p style="color:#15803d;">Seleziona il tuo nome e la data in cui desideri lavorare da casa. Il sistema verificherà la disponibilità del turno.</p>
+    </div>
+  </div>
+  <div style="padding:16px;">
+    <form id="swForm" class="formrow" style="align-items:flex-end;gap:12px;">
+      <div>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;color:#166534;">Il tuo nome:</label>
+        <select id="swPerson" class="field" style="min-width:210px;" required>
+          <option value="">Seleziona operatore...</option>
+        </select>
+      </div>
+      <div>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;color:#166534;">Data:</label>
+        <input type="date" id="swDate" class="field" style="min-width:150px;" required>
+      </div>
+      <button type="submit" class="btn primary" style="background:#15803d;border-color:#15803d;">Invia Richiesta Smartworking</button>
+    </form>
+  </div>
+</section>
 
 <div class="toolbar">
   <div class="left">
@@ -155,7 +186,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead">
     <div>
       <h3>Programmazione Turni - Team Helpdesk</h3>
-      <p id="panelSub">I giorni con turni scoperte (0 op.) o a rischio (1 op.) vengono evidenziati in rosso/arancione nell'intestazione.</p>
+      <p id="panelSub">I turni in smartworking sono contrassegnati da un pallino azzurro nell'angolo della cella.</p>
     </div>
     <div class="legend">
       <span class="tag Mattina">Mattina</span>
@@ -165,10 +196,11 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <span class="tag Ferie">Ferie</span>
       <span class="tag Malattia">Malattia</span>
       <span class="tag Diurno" style="border:1px solid #cbd5e1;">Diurno</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;"><span style="width:10px;height:10px;background:#0284c7;display:inline-block;border-radius:50%;"></span> Smartworking</span>
     </div>
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
-  <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin).</span><span id="status">Inizializzazione...</span></div>
+  <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
 
 <!-- Pannello Storico e Statistiche Avanzate (Visibile SOLO per Admin) -->
@@ -259,7 +291,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia','Diurno'];
-let people=[], archivedPeople=[], shifts=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
+let people=[], archivedPeople=[], shifts=[], smartworking=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
 
 const pad=n=>String(n).padStart(2,'0');
 function iso(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
@@ -273,6 +305,7 @@ function setBanner(text,kind=''){ $('banner').textContent=text;$('banner').class
 function setStatus(t){$('status').textContent=t}
 function datesInView(){if(view==='week'){let s=monday(anchor);return Array.from({length:7},(_,i)=>addDays(s,i))}let first=new Date(anchor.getFullYear(),anchor.getMonth(),1,12),last=new Date(anchor.getFullYear(),anchor.getMonth()+1,0,12);return Array.from({length:last.getDate()},(_,i)=>addDays(first,i))}
 function getShift(personId,dateIso){return shifts.find(s=>s.employee_id===personId&&s.shift_date===dateIso)?.shift_type||''}
+function isSmartworking(personId,dateIso){return smartworking.some(sw=>sw.employee_id===personId&&sw.request_date===dateIso);}
 function admin(){return !!session}
 
 function updateAuthUI(showLoginForm = false){
@@ -298,6 +331,12 @@ function updatePersonDropdown(){
   const select = $('filterPerson');
   select.innerHTML = '<option value="">👤 Tutti gli operatori</option>' + 
     allActiveOrWithShifts.map(p=>`<option value="${p.id}" ${selectedPersonId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+}
+
+function updateSwDropdown(){
+  const select = $('swPerson');
+  select.innerHTML = '<option value="">Seleziona operatore...</option>' + 
+    people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
 }
 
 function updateHistoryDropdown(){
@@ -326,6 +365,7 @@ function render(){
  $('period').textContent=view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}`:anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
  
  updatePersonDropdown();
+ updateSwDropdown();
  if(admin()) updateHistoryDropdown();
  
  const displayPeople = getDisplayPeople();
@@ -408,10 +448,19 @@ function render(){
   </td>`+dates.map(d=>{
     let dIso = iso(d);
     let s=getShift(p.id,dIso);
+    let isSw = isSmartworking(p.id, dIso);
     let isSel = dIso === selectedDateIso;
     let isFilteredOut = activeShiftFilter && s !== activeShiftFilter;
     
-    return `<td data-date-col="${dIso}" class="${isSel?'selected-day':''}"><select class="shift ${s||'none'} ${isFilteredOut?'filtered-out':''}" data-person="${p.id}" data-date="${dIso}" ${admin()?'':'disabled'} aria-label="${escapeHtml(p.name)} ${dIso}"><option value="">—</option>${types.map(t=>`<option value="${t}" ${s===t?'selected':''}>${t}</option>`).join('')}</select></td>`
+    return `<td data-date-col="${dIso}" class="${isSel?'selected-day':''}">
+      <div class="shift-cell-container">
+        ${isSw ? '<span class="sw-badge" title="Smartworking attivo"></span>' : ''}
+        <select class="shift ${s||'none'} ${isFilteredOut?'filtered-out':''}" data-person="${p.id}" data-date="${dIso}" ${admin()?'':'disabled'} aria-label="${escapeHtml(p.name)} ${dIso}">
+          <option value="">—</option>
+          ${types.map(t=>`<option value="${t}" ${s===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </td>`
   }).join('')+'</tr>'}).join('');
  
  rosterTable.querySelectorAll('select').forEach(el=>el.addEventListener('change',async e=>{if(!admin())return;await setShift(e.target.dataset.person,e.target.dataset.date,e.target.value)}));
@@ -433,7 +482,7 @@ function render(){
  }));
  
  rosterTable.querySelectorAll('[data-date-col]').forEach(el=>el.addEventListener('click',e=>{
-   if(e.target.tagName === 'SELECT') return;
+   if(e.target.closest('.shift-cell-container')) return;
    selectedDateIso = e.currentTarget.getAttribute('data-date-col');
    render();
  }));
@@ -445,10 +494,11 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 async function loadData(){
  setStatus('Caricamento dati...');
- const [pr, ar, sr]=await Promise.all([
+ const [pr, ar, sr, swr]=await Promise.all([
    supabase.from('employees').select('id,name,last_day').eq('active',true).order('name'),
    supabase.from('employees').select('id,name,last_day').eq('active',false).order('name'),
-   supabase.from('shifts').select('employee_id,shift_date,shift_type')
+   supabase.from('shifts').select('employee_id,shift_date,shift_type'),
+   supabase.from('smartworking_requests').select('employee_id,request_date,shift_type')
  ]);
 
  if(pr.error || sr.error){
@@ -462,6 +512,7 @@ async function loadData(){
  people=pr.data||[];
  archivedPeople=ar.data||[];
  shifts=sr.data||[];
+ smartworking=swr.data||[];
  updateAuthUI();
  renderArchivedList();
  render();
@@ -504,6 +555,53 @@ async function setShift(personId,date,type){
  if(!type){if(idx>=0)shifts.splice(idx,1)}else if(idx>=0)shifts[idx].shift_type=type;else shifts.push({employee_id:personId,shift_date:date,shift_type:type});
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
+
+// Gestione invio Smartworking con controllo conflitti sullo stesso turno
+$('swForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const personId = $('swPerson').value;
+  const reqDate = $('swDate').value;
+  if(!personId || !reqDate) return;
+
+  // 1. Verifica che l'utente abbia un turno assegnato in quella data e che sia Mattina o Pomeriggio
+  const shiftRecord = shifts.find(s => s.employee_id === personId && s.shift_date === reqDate);
+  if(!shiftRecord || !['Mattina', 'Pomeriggio'].includes(shiftRecord.shift_type)) {
+    alert('Impossibile richiedere lo smartworking: non hai un turno di "Mattina" o "Pomeriggio" assegnato in questa data.');
+    return;
+  }
+
+  const targetShift = shiftRecord.shift_type;
+
+  // 2. Controllo conflitti: c'è già qualcuno nello stesso turno (Mattina/Pomeriggio) in quella data con smartworking?
+  const conflict = smartworking.some(sw => {
+    if(sw.request_date !== reqDate) return false;
+    // Cerca il turno di questo utente già in SW
+    const otherShift = shifts.find(s => s.employee_id === sw.employee_id && s.shift_date === reqDate);
+    return otherShift && otherShift.shift_type === targetShift;
+  });
+
+  if(conflict) {
+    alert(`Impossibile registrare lo smartworking: il turno di ${targetShift} per il giorno ${reqDate.split('-').reverse().join('/')} è già stato richiesto da un altro operatore!`);
+    return;
+  }
+
+  setStatus('Invio richiesta Smartworking...');
+  const { error } = await supabase.from('smartworking_requests').upsert({
+    employee_id: personId,
+    request_date: reqDate,
+    shift_type: targetShift
+  }, { onConflict: 'employee_id,request_date' });
+
+  if(error) {
+    setBanner('Errore richiesta smartworking: ' + error.message, 'error');
+    setStatus('Errore');
+    return;
+  }
+
+  setBanner('Richiesta Smartworking registrata con successo!', 'ok');
+  $('swDate').value = '';$('swPerson').value = '';
+  await loadData();
+};
 
 async function archivePerson(personId, lastDay){
  setStatus('Archiviazione in corso…');
@@ -624,7 +722,8 @@ $('loginCancelBtn').onclick = () => {
   updateAuthUI(false);
 };
 
-$('toggleArchivedBtn').onclick = () => {$('archivedSection').classList.toggle('hidden');
+$('toggleArchivedBtn').onclick = () => {
+  $('archivedSection').classList.toggle('hidden');
 };
 
 $('topLoginForm').onsubmit = async (e) => {
@@ -642,12 +741,14 @@ $('topLoginForm').onsubmit = async (e) => {
 };
 
 $('prev').onclick=()=>{anchor=view==='week'?addDays(anchor,-7):new Date(anchor.getFullYear(),anchor.getMonth()-1,15,12);render()};
-$('next').onclick=()=>{anchor=view==='week'?addDays(anchor,7):new Date(anchor.getFullYear(),anchor.getMonth()+1,15,12);render()};$('today').onclick=()=>{
+$('next').onclick=()=>{anchor=view==='week'?addDays(anchor,7):new Date(anchor.getFullYear(),anchor.getMonth()+1,15,12);render()};
+$('today').onclick=()=>{
   anchor=new Date();
   selectedDateIso = iso(new Date());
   render();
 };
-$('weekTab').onclick=()=>{view='week';render()};$('monthTab').onclick=()=>{view='month';render()};
+$('weekTab').onclick=()=>{view='week';render()};
+$('monthTab').onclick=()=>{view='month';render()};
 
 $('filterPerson').onchange=(e)=>{
   selectedPersonId=e.target.value;
@@ -657,7 +758,8 @@ $('filterPerson').onchange=(e)=>{
 $('logout').onclick=async()=>{
   await supabase.auth.signOut();
   session=null;
-  $('email').value='';$('password').value='';
+  $('email').value='';
+  $('password').value='';
   updateAuthUI();
   await loadData();
 };
@@ -673,7 +775,7 @@ $('addPersonForm').onsubmit = async (e) => {
   await loadData();
 };
 
-$('importExcelBtn').onclick = () => {$('excelFile').click(); };
+$('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
