@@ -69,6 +69,9 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 .admin{margin-top:16px;padding:18px}.admin h3{margin:0 0 8px}.formrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.field{padding:10px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;min-width:180px}.field.dark{background:#1e2d4a;border-color:#2e3e5e;color:#fff}.field.dark::placeholder{color:#8ea3c7}.hidden{display:none!important}.small{font-size:12px;color:var(--muted)}#status{font-size:12px;color:var(--muted)}
 .header-auth{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
+.sw-badge-btn { display: inline-flex; align-items: center; gap: 4px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.sw-badge-btn:hover { background: #0284c7; color: #fff; }
+
 @media print {
   body { background: #fff; color: #000; font-size: 10px; }
   header, .toolbar, .banner, .stats-header, .stats, .panelhead p, .foot, .admin, .btn-del, #authContainer, #swPanel, #swAdminPanel { display: none !important; }
@@ -183,7 +186,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead" style="background:#dcfce7;border-bottom-color:#bbf7d0;">
     <div>
       <h3 style="color:#166534;">💻 Richiesta Smartworking (Area Operatori)</h3>
-      <p style="color:#15803d;">Seleziona il tuo nome: la data mostrerà solo i giorni in cui puoi richiedere lo smartworking.</p>
+      <p style="color:#15803d;">Seleziona il tuo nome e la data in cui desideri lavorare da casa. Puoi scegliere qualsiasi mese dal calendario.</p>
     </div>
   </div>
   <div style="padding:16px;">
@@ -195,14 +198,12 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
         </select>
       </div>
       <div>
-        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;color:#166534;">Data disponibile:</label>
-        <select id="swDateSelect" class="field" style="min-width:180px;" disabled required>
-          <option value="">← Seleziona prima l'operatore</option>
-        </select>
+        <label class="small" style="display:block;font-weight:700;margin-bottom:4px;color:#166534;">Data:</label>
+        <input type="date" id="swDate" class="field" style="min-width:160px;" required>
       </div>
-      <button type="submit" class="btn primary" id="swSubmitBtn" style="background:#15803d;border-color:#15803d;" disabled>Invia Richiesta Smartworking</button>
+      <button type="submit" class="btn primary" id="swSubmitBtn" style="background:#15803d;border-color:#15803d;">Invia Richiesta Smartworking</button>
     </form>
-    <div id="swInfoMessage" class="small" style="margin-top:8px;color:#15803d;font-weight:600;"></div>
+    <div id="swInfoMessage" class="small" style="margin-top:8px;font-weight:600;"></div>
   </div>
 </section>
 
@@ -211,7 +212,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead" style="background:#e0f2fe;border-bottom-color:#bae6fd;">
     <div>
       <h3 style="color:#0369a1;">⚙️ Gestione & Rimozione Smartworking (Area Riservata Admin)</h3>
-      <p style="color:#0284c7;">Aggiungi o cancella uno Smartworking assegnato ad un operatore in una specifica data.</p>
+      <p style="color:#0284c7;">Aggiungi o cancella uno Smartworking assegnato ad un operatore. Clicca sui badge attivi per selezionarli al volo.</p>
     </div>
   </div>
   <div style="padding:16px;">
@@ -224,14 +225,19 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       </div>
       <div>
         <label class="small" style="display:block;font-weight:700;margin-bottom:4px;color:#0369a1;">Data:</label>
-        <select id="swAdminDateSelect" class="field" style="min-width:210px;" disabled required>
-          <option value="">← Seleziona prima l'operatore</option>
-        </select>
+        <input type="date" id="swAdminDate" class="field" style="min-width:160px;" required>
       </div>
-      <button type="button" id="swAdminAddBtn" class="btn primary" style="background:#0284c7;border-color:#0284c7;" disabled>➕ Assegna Smartworking</button>
-      <button type="button" id="swAdminRemoveBtn" class="btn danger" disabled>❌ Rimuovi Smartworking</button>
+      <button type="button" id="swAdminAddBtn" class="btn primary" style="background:#0284c7;border-color:#0284c7;">➕ Assegna Smartworking</button>
+      <button type="button" id="swAdminRemoveBtn" class="btn danger">❌ Rimuovi Smartworking</button>
     </form>
-    <div id="swAdminInfoMessage" class="small" style="margin-top:8px;color:#0369a1;font-weight:600;"></div>
+
+    <!-- Badge Smartworking Attivi per l'operatore selezionato -->
+    <div id="swAdminActiveContainer" class="hidden" style="margin-top:12px;padding-top:10px;border-top:1px dashed #bae6fd;">
+      <span class="small" style="display:block;font-weight:700;color:#0369a1;margin-bottom:6px;">Smartworking attivi per questo operatore (clicca per selezionare la data):</span>
+      <div id="swAdminActiveBadges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    
+    <div id="swAdminInfoMessage" class="small" style="margin-top:8px;font-weight:600;"></div>
   </div>
 </section>
 
@@ -600,6 +606,115 @@ async function setShift(personId,date,type){
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
 
+// Verifica validità Smartworking per la data selezionata (Lato Pubblico)
+function validatePublicSwSelection() {
+  const personId = $('swPerson').value;
+  const reqDate = $('swDate').value;
+  const submitBtn = $('swSubmitBtn');
+  const infoMsg = $('swInfoMessage');
+
+  if(!personId || !reqDate) {
+    submitBtn.disabled = true;
+    infoMsg.textContent = '';
+    return;
+  }
+
+  const shiftRecord = shifts.find(s => s.employee_id === personId && s.shift_date === reqDate);
+  const targetShift = shiftRecord?.shift_type;
+
+  if(!shiftRecord || !['Mattina', 'Pomeriggio'].includes(targetShift)) {
+    submitBtn.disabled = true;
+    infoMsg.style.color = '#d32f2f';
+    infoMsg.textContent = `❌ Data non valida: L'operatore non è in turno di Mattina o Pomeriggio il ${reqDate.split('-').reverse().join('/')}.`;
+    return;
+  }
+
+  const alreadyOwn = isSmartworking(personId, reqDate);
+  if(alreadyOwn) {
+    submitBtn.disabled = true;
+    infoMsg.style.color = '#d32f2f';
+    infoMsg.textContent = `❌ Hai già uno Smartworking attivo in data ${reqDate.split('-').reverse().join('/')}.`;
+    return;
+  }
+
+  const conflict = smartworking.some(sw => {
+    if(sw.request_date !== reqDate) return false;
+    const otherShift = shifts.find(s => s.employee_id === sw.employee_id && s.shift_date === reqDate);
+    return otherShift && otherShift.shift_type === targetShift;
+  });
+
+  if(conflict) {
+    submitBtn.disabled = true;
+    infoMsg.style.color = '#d32f2f';
+    infoMsg.textContent = `❌ Non disponibile: Il turno di ${targetShift} per il ${reqDate.split('-').reverse().join('/')} è già stato occupato da un altro collega.`;
+    return;
+  }
+
+  submitBtn.disabled = false;
+  infoMsg.style.color = '#15803d';
+  infoMsg.textContent = `✅ Data disponibile! Turno assegnato: ${targetShift}. puoi inviare la richiesta.`;
+}
+
+// LOGICA ADMIN: Aggiorna e mostra i badge degli Smartworking attivi per l'operatore
+function updateAdminSwBadges() {
+  const personId = $('swAdminPerson').value;
+  const container = $('swAdminActiveContainer');
+  const badgesDiv = $('swAdminActiveBadges');
+  const infoMsg = $('swAdminInfoMessage');
+
+  if(!personId) {
+    container.classList.add('hidden');
+    infoMsg.textContent = '';
+    return;
+  }
+
+  // Trova tutti i giorni in cui l'operatore ha uno smartworking attivo
+  const activeSwList = smartworking.filter(sw => sw.employee_id === personId)
+                                  .sort((a,b) => a.request_date.localeCompare(b.request_date));
+
+  if(activeSwList.length === 0) {
+    container.classList.add('hidden');
+    infoMsg.style.color = '#0369a1';
+    infoMsg.textContent = 'L\'operatore non ha attualmente alcuno Smartworking attivo registrato.';
+  } else {
+    container.classList.remove('hidden');
+    badgesDiv.innerHTML = activeSwList.map(sw => {
+      const [y, m, d] = sw.request_date.split('-');
+      const formatted = `${d}/${m}/${y}`;
+      return `<button type="button" class="sw-badge-btn" data-sw-date="${sw.request_date}">💻 ${formatted} (${sw.shift_type})</button>`;
+    }).join('');
+
+    badgesDiv.querySelectorAll('.sw-badge-btn').forEach(btn => {
+      btn.onclick = () => {
+        $('swAdminDate').value = btn.getAttribute('data-sw-date');
+        validateAdminSwSelection();
+      };
+    });
+
+    infoMsg.style.color = '#0369a1';
+    infoMsg.textContent = `Trovati ${activeSwList.length} Smartworking attivi per questo operatore.`;
+  }
+}
+
+function validateAdminSwSelection() {
+  const personId = $('swAdminPerson').value;
+  const reqDate = $('swAdminDate').value;
+  const removeBtn = $('swAdminRemoveBtn');
+
+  if(!personId || !reqDate) return;
+  const alreadyOwn = isSmartworking(personId, reqDate);
+  removeBtn.style.opacity = alreadyOwn ? '1' : '0.5';
+}
+
+$('swPerson').onchange = validatePublicSwSelection;
+$('swDate').onchange = validatePublicSwSelection;
+
+$('swAdminPerson').onchange = () => {
+  updateAdminSwBadges();
+  validateAdminSwSelection();
+};
+$('swAdminDate').onchange = validateAdminSwSelection;
+
 async function processSmartworkingAdd(personId, reqDate) {
   const shiftRecord = shifts.find(s => s.employee_id === personId && s.shift_date === reqDate);
   if(!shiftRecord || !['Mattina', 'Pomeriggio'].includes(shiftRecord.shift_type)) {
@@ -637,133 +752,27 @@ async function processSmartworkingAdd(personId, reqDate) {
   await loadData();
 }
 
-// LOGICA PUBBLICA: Quando un operatore si seleziona nel Form Smartworking
-$('swPerson').onchange = () => {
-  const personId = $('swPerson').value;
-  const dateSelect = $('swDateSelect');
-  const submitBtn = $('swSubmitBtn');
-  const infoMsg = $('swInfoMessage');
-
-  if(!personId) {
-    dateSelect.innerHTML = '<option value="">← Seleziona prima l\'operatore</option>';
-    dateSelect.disabled = true;
-    submitBtn.disabled = true;
-    infoMsg.textContent = '';
-    return;
-  }
-
-  // Trova tutti i turni dell'operatore nel periodo visualizzato (Mattina o Pomeriggio)
-  const dates = datesInView();
-  let availableDates = [];
-
-  dates.forEach(d => {
-    let dIso = iso(d);
-    let s = getShift(personId, dIso);
-
-    // Deve essere in turno Mattina o Pomeriggio
-    if(['Mattina', 'Pomeriggio'].includes(s)) {
-      // Verifica che non sia GIÀ in SW lui stesso
-      let alreadyOwnSw = isSmartworking(personId, dIso);
-      // Verifica se UN ALTRO collega nello stesso turno ha già preso SW
-      let hasConflict = smartworking.some(sw => {
-        if(sw.request_date !== dIso) return false;
-        let otherShift = shifts.find(sh => sh.employee_id === sw.employee_id && sh.shift_date === dIso);
-        return otherShift && otherShift.shift_type === s;
-      });
-
-      if(!alreadyOwnSw && !hasConflict) {
-        const formattedDate = d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        availableDates.push({ iso: dIso, label: `${formattedDate} (${s})` });
-      }
-    }
-  });
-
-  if(availableDates.length === 0) {
-    dateSelect.innerHTML = '<option value="">Nessuna data disponibile</option>';
-    dateSelect.disabled = true;
-    submitBtn.disabled = true;
-    infoMsg.textContent = 'Non ci sono giorni di Mattina/Pomeriggio disponibili per richiedere lo smartworking in questa vista.';
-  } else {
-    dateSelect.innerHTML = '<option value="">Seleziona data...</option>' + 
-      availableDates.map(ad => `<option value="${ad.iso}">${ad.label}</option>`).join('');
-    dateSelect.disabled = false;
-    submitBtn.disabled = false;
-    infoMsg.textContent = `Trovati ${availableDates.length} giorni disponibili per lo Smartworking.`;
-  }
-};
-
-// LOGICA ADMIN: Quando l'Admin seleziona un operatore nel suo pannello
-$('swAdminPerson').onchange = () => {
-  const personId = $('swAdminPerson').value;
-  const dateSelect = $('swAdminDateSelect');
-  const addBtn = $('swAdminAddBtn');
-  const removeBtn = $('swAdminRemoveBtn');
-  const infoMsg = $('swAdminInfoMessage');
-
-  if(!personId) {
-    dateSelect.innerHTML = '<option value="">← Seleziona prima l\'operatore</option>';
-    dateSelect.disabled = true;
-    addBtn.disabled = true;
-    removeBtn.disabled = true;
-    infoMsg.textContent = '';
-    return;
-  }
-
-  const dates = datesInView();
-  let allOptions = [];
-  let swActiveCount = 0;
-
-  dates.forEach(d => {
-    let dIso = iso(d);
-    let s = getShift(personId, dIso);
-    let isSw = isSmartworking(personId, dIso);
-    const formattedDate = d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
-
-    if(isSw) {
-      swActiveCount++;
-      allOptions.push({ iso: dIso, label: `🟢 ${formattedDate} (${s}) - SMARTWORKING ATTIVO` });
-    } else if(['Mattina', 'Pomeriggio'].includes(s)) {
-      allOptions.push({ iso: dIso, label: `⚪ ${formattedDate} (${s})` });
-    }
-  });
-
-  if(allOptions.length === 0) {
-    dateSelect.innerHTML = '<option value="">Nessun giorno selezionabile</option>';
-    dateSelect.disabled = true;
-    addBtn.disabled = true;
-    removeBtn.disabled = true;
-    infoMsg.textContent = 'Nessun turno di Mattina/Pomeriggio o Smartworking attivo in questo periodo.';
-  } else {
-    dateSelect.innerHTML = '<option value="">Seleziona data...</option>' + 
-      allOptions.map(o => `<option value="${o.iso}">${o.label}</option>`).join('');
-    dateSelect.disabled = false;
-    addBtn.disabled = false;
-    removeBtn.disabled = false;
-    infoMsg.textContent = `Operatore selezionato. (${swActiveCount} Smartworking già attivi evidenziati in verde 🟢).`;
-  }
-};
-
 $('swForm').onsubmit = async (e) => {
   e.preventDefault();
   const personId = $('swPerson').value;
-  const reqDate = $('swDateSelect').value;
+  const reqDate = $('swDate').value;
   if(!personId || !reqDate) return;
   await processSmartworkingAdd(personId, reqDate);
-  $('swPerson').value = '';
-  $('swPerson').dispatchEvent(new Event('change'));
+  $('swDate').value = '';
+  validatePublicSwSelection();
 };
 
 $('swAdminAddBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
-  const reqDate = $('swAdminDateSelect').value;
+  const reqDate = $('swAdminDate').value;
   if(!personId || !reqDate) { alert('Seleziona sia un operatore che una data.'); return; }
   await processSmartworkingAdd(personId, reqDate);
-  $('swAdminPerson').dispatchEvent(new Event('change'));
+  updateAdminSwBadges();
 };
 
 $('swAdminRemoveBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
-  const reqDate = $('swAdminDateSelect').value;
+  const reqDate = $('swAdminDate').value;
   if(!personId || !reqDate) { alert('Seleziona l\'operatore e la data dello Smartworking da cancellare.'); return; }
 
   const pName = people.find(p => p.id === personId)?.name || 'l\'operatore';
@@ -780,7 +789,7 @@ $('swAdminRemoveBtn').onclick = async () => {
 
   setBanner('Smartworking rimosso con successo!', 'ok');
   await loadData();
-  $('swAdminPerson').dispatchEvent(new Event('change'));
+  updateAdminSwBadges();
 };
 
 async function archivePerson(personId, lastDay){
