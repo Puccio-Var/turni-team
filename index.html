@@ -55,6 +55,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 .Riposo{background:#ffedd5;color:#c2410c}
 .Ferie{background:#fef08a;color:#854d0e}
 .Malattia{background:#ffe0e0;color:#9b2525}
+.Diurno{background:#f8fafc;color:#334155;border:1px solid #cbd5e1}
 
 .shift.filtered-out { opacity: 0.15; filter: grayscale(80%); }
 
@@ -79,6 +80,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   .Riposo { background: #ffedd5 !important; color: #c2410c !important; }
   .Ferie { background: #fef08a !important; color: #854d0e !important; }
   .Malattia { background: #ffe0e0 !important; color: #9b2525 !important; }
+  .Diurno { background: #f8fafc !important; color: #334155 !important; }
   .none { background: #fff !important; color: #ccc !important; }
 }
 
@@ -162,6 +164,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <span class="tag Riposo">Riposo</span>
       <span class="tag Ferie">Ferie</span>
       <span class="tag Malattia">Malattia</span>
+      <span class="tag Diurno" style="border:1px solid #cbd5e1;">Diurno</span>
     </div>
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
@@ -207,6 +210,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
         <label><input type="checkbox" value="Riposo" checked> Riposo</label>
         <label><input type="checkbox" value="Ferie" checked> Ferie</label>
         <label><input type="checkbox" value="Malattia" checked> Malattia</label>
+        <label><input type="checkbox" value="Diurno" checked> Diurno</label>
       </div>
     </div>
 
@@ -254,7 +258,7 @@ const SUPABASE_URL = 'https://gwyalnqzvuzrewhupgjv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3eWFsbnF6dnV6cmV3aHVwZ2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0ODQwNzUsImV4cCI6MjEwODA2MDA3NX0.cWQ80Kwh6MC5OSvQJPeS_s6TeIo7Tc283gqawwfLwiI';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia'];
+const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia','Diurno'];
 let people=[], archivedPeople=[], shifts=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
 
 const pad=n=>String(n).padStart(2,'0');
@@ -303,22 +307,16 @@ function updateHistoryDropdown(){
     allPeopleList.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
 }
 
-// Restituisce gli utenti attivi + eventuali archiviati che hanno turni nel periodo in visualizzazione
 function getDisplayPeople(){
   const dates = datesInView();
   const startIso = iso(dates[0]);
   const endIso = iso(dates[dates.length - 1]);
 
-  let activeIds = new Set(people.map(p => p.id));
-  
-  // Trova gli archiviati che hanno almeno un turno nel range visualizzato
   let archivedWithShifts = archivedPeople.filter(ap => {
     return shifts.some(s => s.employee_id === ap.id && s.shift_date >= startIso && s.shift_date <= endIso);
   });
 
-  // Unisce gli attivi e gli archiviati pertinenti a questo periodo
   let combined = [...people, ...archivedWithShifts];
-  // Ordina alfabeticamente
   combined.sort((a, b) => a.name.localeCompare(b.name));
   return combined;
 }
@@ -335,7 +333,6 @@ function render(){
  const rosterTable = $('roster');
  rosterTable.className = view === 'month' ? 'month-view' : '';
  
- // Calcola copertura per ciascun giorno considerando tutti gli operatori visibili nel periodo
  let head='<tr><th>Collega</th>'+dates.map(d=>{
    const dIso = iso(d);
    const isSel = dIso === selectedDateIso;
@@ -363,7 +360,7 @@ function render(){
  }).join('')+'</tr>';
  rosterTable.querySelector('thead').innerHTML=head;
  
- let dayCounts={Mattina:0,Pomeriggio:0,Notte:0,Riposo:0,Ferie:0,Malattia:0};
+ let dayCounts={Mattina:0,Pomeriggio:0,Notte:0,Riposo:0,Ferie:0,Malattia:0,Diurno:0};
  visiblePeople.forEach(p=>{
    let s = getShift(p.id, selectedDateIso);
    if(dayCounts[s]!==undefined) dayCounts[s]++;
@@ -397,7 +394,8 @@ function render(){
  
  rosterTable.querySelector('tbody').innerHTML=visiblePeople.map(p=>{
    let isArchived = archivedPeople.some(ap => ap.id === p.id);
-   let archiveLabel = isArchived ? ' <span style="font-size:9px;color:var(--muted);">(Archiviato)</span>' : '';
+   let archivedData = archivedPeople.find(ap => ap.id === p.id);
+   let archiveLabel = isArchived ? ` <span style="font-size:9px;color:var(--muted);">(Archiviato${archivedData?.last_day ? ' dal '+archivedData.last_day.split('-').reverse().join('/') : ''})</span>` : '';
 
    return `<tr><td>
     <div class="person">
@@ -421,8 +419,10 @@ function render(){
  rosterTable.querySelectorAll('.btn-del').forEach(el=>el.addEventListener('click',async e=>{
    const pId=e.target.dataset.removeId;
    const pName=people.find(p=>p.id===pId)?.name || 'questo collega';
-   if(confirm(`Vuoi archiviare/disabilitare ${pName}? L'operatore non comparirà più nei mesi futuri ma lo storico dei suoi turni passati rimarrà visibile.`)){
-     await archivePerson(pId);
+   let defaultDate = iso(new Date());
+   let lastDayInput = prompt(`Inserisci l'ultimo giorno di lavoro per ${pName} (AAAA-MM-GG):`, defaultDate);
+   if(lastDayInput !== null){
+     await archivePerson(pId, lastDayInput.trim());
    }
  }));
  
@@ -446,8 +446,8 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 async function loadData(){
  setStatus('Caricamento dati...');
  const [pr, ar, sr]=await Promise.all([
-   supabase.from('employees').select('id,name').eq('active',true).order('name'),
-   supabase.from('employees').select('id,name').eq('active',false).order('name'),
+   supabase.from('employees').select('id,name,last_day').eq('active',true).order('name'),
+   supabase.from('employees').select('id,name,last_day').eq('active',false).order('name'),
    supabase.from('shifts').select('employee_id,shift_date,shift_type')
  ]);
 
@@ -475,17 +475,20 @@ function renderArchivedList(){
     container.innerHTML = '<span style="color:var(--muted);">Nessun operatore archiviato.</span>';
     return;
   }
-  container.innerHTML = archivedPeople.map(p => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #e2e8f0;">
-      <span><b>${escapeHtml(p.name)}</b> (Archiviato)</span>
-      <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="window.restorePerson('${p.id}')">🔄 Riabilita</button>
-    </div>
-  `).join('');
+  container.innerHTML = archivedPeople.map(p => {
+    let dateStr = p.last_day ? ` (Ultimo giorno: ${p.last_day.split('-').reverse().join('/')})` : '';
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #e2e8f0;">
+        <span><b>${escapeHtml(p.name)}</b>${dateStr}</span>
+        <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="window.restorePerson('${p.id}')">🔄 Riabilita</button>
+      </div>
+    `;
+  }).join('');
 }
 
 window.restorePerson = async function(personId){
   setStatus('Riattivazione operatore...');
-  const {error} = await supabase.from('employees').update({active: true}).eq('id', personId);
+  const {error} = await supabase.from('employees').update({active: true, last_day: null}).eq('id', personId);
   if(error){ setBanner('Errore nel riattivare l\'operatore: ' + error.message, 'error'); return; }
   setBanner('Operatore riattivato con successo.', 'ok');
   await loadData();
@@ -502,9 +505,9 @@ async function setShift(personId,date,type){
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
 
-async function archivePerson(personId){
+async function archivePerson(personId, lastDay){
  setStatus('Archiviazione in corso…');
- const {error}=await supabase.from('employees').update({active:false}).eq('id',personId);
+ const {error}=await supabase.from('employees').update({active:false, last_day: lastDay || null}).eq('id',personId);
  if(error){setBanner('Errore durante l\'archiviazione: '+error.message,'error');return}
  setBanner('Operatore archiviato con successo. I suoi turni passati rimarranno visibili nei mesi di competenza.','ok');
  if(selectedPersonId===personId) selectedPersonId='';
@@ -720,7 +723,8 @@ $('excelFile').onchange = async (e) => {
         'N': 'Notte', 'NOTTE': 'Notte',
         'R': 'Riposo', 'RIPOSO': 'Riposo',
         'F': 'Ferie', 'FERIE': 'Ferie',
-        'MAL': 'Malattia', 'MALATTIA': 'Malattia'
+        'MAL': 'Malattia', 'MALATTIA': 'Malattia',
+        'D': 'Diurno', 'DIURNO': 'Diurno'
       };
 
       const year = anchor.getFullYear();
