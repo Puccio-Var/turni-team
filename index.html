@@ -179,7 +179,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
 
-<!-- Pannello Richiesta Smartworking Pubblico (Visibile SOLO per Operatori NON Admin) -->
+<!-- Pannello Richiesta Smartworking Pubblico -->
 <section class="panel" id="swPanel" style="background:#f0fdf4;border-color:#bbf7d0;margin-bottom:20px;">
   <div class="panelhead" style="background:#dcfce7;border-bottom-color:#bbf7d0;">
     <div>
@@ -205,12 +205,12 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
 </section>
 
-<!-- Pannello Gestione / Rimozione Smartworking (Visibile SOLO per ADMIN) -->
+<!-- Pannello Gestione / Rimozione Smartworking (Admin) -->
 <section class="panel admin hidden" id="swAdminPanel" style="background:#f0f9ff;border-color:#bae6fd;margin-bottom:20px;">
   <div class="panelhead" style="background:#e0f2fe;border-bottom-color:#bae6fd;">
     <div>
       <h3 style="color:#0369a1;">⚙️ Gestione & Rimozione Smartworking (Area Riservata Admin)</h3>
-      <p style="color:#0284c7;">Aggiungi o cancella uno Smartworking assegnato ad un operatore. Clicca sui badge attivi per selezionarli al volo.</p>
+      <p style="color:#0284c7;">Aggiungi o cancella uno Smartworking assegnato ad un operatore.</p>
     </div>
   </div>
   <div style="padding:16px;">
@@ -229,9 +229,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <button type="button" id="swAdminRemoveBtn" class="btn danger">❌ Rimuovi Smartworking</button>
     </form>
 
-    <!-- Badge Smartworking Attivi per l'operatore selezionato -->
     <div id="swAdminActiveContainer" class="hidden" style="margin-top:12px;padding-top:10px;border-top:1px dashed #bae6fd;">
-      <span class="small" style="display:block;font-weight:700;color:#0369a1;margin-bottom:6px;">Smartworking attivi per questo operatore (clicca per selezionare la data):</span>
+      <span class="small" style="display:block;font-weight:700;color:#0369a1;margin-bottom:6px;">Smartworking attivi per questo operatore:</span>
       <div id="swAdminActiveBadges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
     
@@ -239,7 +238,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   </div>
 </section>
 
-<!-- Pannello Storico e Statistiche Avanzate (Visibile SOLO per Admin) -->
+<!-- Pannello Storico e Statistiche Avanzate -->
 <section class="panel admin hidden" id="historyPanel" style="background:#f8fafc;border:1px solid #cbd5e1;">
   <div class="panelhead" style="background:#f1f5f9;border-bottom:1px solid #cbd5e1;">
     <div>
@@ -297,7 +296,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 <section class="panel admin hidden" id="adminPanel">
   <h3>Gestione colleghi e Importazione Turni</h3>
-  <div class="small">Aggiungi nuovi componenti, importa da Excel o gestisci l'archivio degli utenti disattivati (es. licenziati/trasferiti).</div>
+  <div class="small">Aggiungi nuovi componenti, importa da Excel o gestisci l'archivio degli utenti disattivati.</div>
   
   <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
     <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
@@ -1003,13 +1002,15 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- IMPORTAZIONE EXCEL SICURA CON SUPPORTO AD OPERATORI ARCHIVIATI E TUTTI I TURNI ---
+// --- MOTORE DI IMPORTAZIONE ULTRASICURO CON TIMEOUT E PROGRESS BAR ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
   if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
 
-  setStatus('Lettura file Excel in corso...');
+  setStatus('Lettura file Excel...');
+  setBanner('Analisi del file Excel in corso...', '');
+
   const reader = new FileReader();
   reader.onload = async function(evt) {
     try {
@@ -1022,10 +1023,10 @@ $('excelFile').onchange = async (e) => {
       let headerRowIdx = -1;
       let dayColumns = {};
       let detectedYear = anchor.getFullYear();
-      let detectedMonth = 9; // Settembre di default se non specificato
+      let detectedMonth = 9; // Settembre
 
       for(let i=0; i<rows.length; i++) {
-        let row = rows[i];
+        let row = rows[i] || [];
         let rowStr = row.join(' ').toLowerCase();
         
         if(rowStr.includes('settembre') || rowStr.includes('sep')) detectedMonth = 9;
@@ -1047,9 +1048,7 @@ $('excelFile').onchange = async (e) => {
             headerRowIdx = i;
             for(let d=1; d<=31; d++) {
               let colIdx = j + (d - 1);
-              if(colIdx < row.length) {
-                dayColumns[d] = colIdx;
-              }
+              if(colIdx < row.length) dayColumns[d] = colIdx;
             }
             break;
           }
@@ -1076,11 +1075,10 @@ $('excelFile').onchange = async (e) => {
 
       const monthStr = String(detectedMonth).padStart(2, '0');
       let rawUpsertList = [];
-      
-      // INCLUDE SIA ATTIVI CHE ARCHIVIATI PER IL MATCHING!
       const allPeopleList = [...people, ...archivedPeople];
 
-      const cleanName = (n) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
+      // Normalizzazione flessibile dei nomi per matching perfetto
+      const cleanName = (n) => String(n || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 
       const lastDayOfMonth = new Date(detectedYear, detectedMonth, 0).getDate();
 
@@ -1128,21 +1126,42 @@ $('excelFile').onchange = async (e) => {
       let upsertList = Array.from(uniqueMap.values());
 
       if(upsertList.length === 0) {
-        setBanner('Nessun turno valido trovato da importare per il mese.', 'error');
+        setBanner('Nessun turno valido trovato nel file Excel da importare.', 'error');
         setStatus('Nessun dato');
         return;
       }
 
-      setStatus('Salvataggio turni a blocchi su Supabase...');
-      
+      setStatus('Invio dati a Supabase...');
+      setBanner(`Invio di ${upsertList.length} turni a Supabase in corso...`, '');
+
+      // Invio con timeout di sicurezza per prevenire blocchi indefiniti
+      const sendWithTimeout = (promise, ms = 8000) => {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout richiesta Supabase')), ms))
+        ]);
+      };
+
       const batchSize = 100;
+      const totalBatches = Math.ceil(upsertList.length / batchSize);
+
       for (let i = 0; i < upsertList.length; i += batchSize) {
+        const currentBatchNum = Math.floor(i / batchSize) + 1;
         const batch = upsertList.slice(i, i + batchSize);
-        const { error } = await supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' });
-        
-        if(error) {
-          console.error('Errore Supabase Batch:', error);
-          setBanner('Errore salvataggio batch: ' + error.message, 'error');
+
+        setBanner(`Salvataggio su Supabase: pacchetto ${currentBatchNum} di ${totalBatches}...`, '');
+
+        try {
+          const res = await sendWithTimeout(
+            supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' })
+          );
+          
+          if(res.error) {
+            throw new Error(res.error.message);
+          }
+        } catch (err) {
+          console.error('Errore durante il salvataggio:', err);
+          setBanner('Errore salvataggio Supabase: ' + err.message, 'error');
           setStatus('Errore DB');
           return;
         }
