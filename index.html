@@ -130,20 +130,14 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     <h2 id="period">Calendario</h2>
   </div>
   <div class="right">
-    <div id="adminActionButtons" class="hidden" style="display:flex;gap:6px;align-items:center;">
-      <button type="button" id="monthClearBtn" class="btn danger" style="padding:8px 12px;font-size:12px;">🗑️ Pulisci Mese</button>
-      <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="monthImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
-      <input type="file" id="yearExcelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="yearImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#7c3aed;border-color:#7c3aed;">📥 Importa Excel Anno</button>
-    </div>
+
 
     <select id="filterPerson" class="field" style="min-width:170px;padding:9px 12px;">
       <option value="">👤 Tutti gli operatori</option>
     </select>
     <div class="tabs">
-      <button id="weekTab" class="active">Settimana</button>
-      <button id="monthTab">Mese</button>
+      <button id="weekTab">Settimana</button>
+      <button id="monthTab" class="active">Mese</button>
     </div>
     <button class="btn" id="csv">Esporta CSV</button>
     <button class="btn primary" id="printBtn">🖨️ Stampa / PDF</button>
@@ -186,6 +180,13 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
+
+<!-- Pulsanti admin del mese (sotto la tabella) -->
+<div id="adminActionButtons" class="hidden" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-6px 0 20px;">
+  <button type="button" id="monthClearBtn" class="btn danger" style="padding:8px 12px;font-size:12px;">🗑️ Pulisci Mese</button>
+  <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
+  <button type="button" id="monthImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
+</div>
 
 <!-- Pannello Richiesta Smartworking Pubblico -->
 <section class="panel" id="swPanel" style="background:#f0fdf4;border-color:#bbf7d0;margin-bottom:20px;">
@@ -339,7 +340,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const types=['Mattina','Pomeriggio','Notte','Riposo','Ferie','Malattia','Diurno'];
-let people=[], archivedPeople=[], shifts=[], smartworking=[], view='week', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
+let people=[], archivedPeople=[], shifts=[], smartworking=[], view='month', anchor=new Date(), session=null, selectedPersonId='', activeShiftFilter=null;
 
 const pad=n=>String(n).padStart(2,'0');
 function iso(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
@@ -502,14 +503,13 @@ function render(){
  rosterTable.querySelector('tbody').innerHTML=visiblePeople.map(p=>{
    let isArchived = archivedPeople.some(ap => ap.id === p.id);
    let archivedData = archivedPeople.find(ap => ap.id === p.id);
-   let archiveLabel = isArchived ? ` <span style="font-size:9px;color:var(--muted);">(Archiviato${archivedData?.last_day ? ' dal '+archivedData.last_day.split('-').reverse().join('/') : ''})</span>` : '';
-   let startLabel = p.start_date ? ` <span style="font-size:9px;color:var(--muted);">(Dal ${p.start_date.split('-').reverse().join('/')})</span>` : '';
+   let endLabel = (p.last_day && p.last_day.startsWith(`${anchor.getFullYear()}-${pad(anchor.getMonth()+1)}`)) ? ` <span style="font-size:9px;color:var(--muted);">(Fino al ${p.last_day.split('-').reverse().join('/')})</span>` : '';
 
    return `<tr><td>
     <div class="person">
       <div class="person-info ${selectedPersonId===p.id?'active-person':''}" data-person-click="${p.id}" title="Clicca per isolare questo operatore">
         <div class="avatar">${p.name.trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}</div>
-        <b>${escapeHtml(p.name)}</b>${archiveLabel}${startLabel}
+        <b>${escapeHtml(p.name)}</b>${endLabel}
       </div>
       ${admin() && !isArchived ? `<button class="btn-del" data-remove-id="${p.id}" title="Archivia operatore">📦</button>` : ''}
     </div>
@@ -1083,149 +1083,6 @@ $('monthClearBtn').onclick = async () => {
 
   setBanner(`Turni di ${monthName} eliminati con successo! Ora puoi importare il file pulito.`, 'ok');
   await loadData();
-};
-
-// --- IMPORTAZIONE EXCEL ANNO INTERO (più tabelle mensili nello stesso foglio) ---
-$('yearImportBtn').onclick = () => { $('yearExcelFile').click(); };
-
-$('yearExcelFile').onchange = async (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  if(!admin()) { setBanner('Devi essere autenticato come amministratore.', 'error'); e.target.value=''; return; }
-
-  const yearAns = prompt('Di quale anno sono i turni nel file?', String(anchor.getFullYear()));
-  if(yearAns === null) { e.target.value=''; return; }
-  const targetYear = parseInt(yearAns, 10);
-  if(isNaN(targetYear) || targetYear < 2000 || targetYear > 2100) { setBanner('Anno non valido.', 'error'); e.target.value=''; return; }
-
-  setStatus('Lettura file Excel...');
-  setBanner('Analisi del file Excel in corso...', '');
-
-  const reader = new FileReader();
-  reader.onload = async function(evt) {
-    try {
-      const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: null});
-
-      const cleanStr = s => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
-      const shiftMap = {
-        'M': 'Mattina', 'MATTINA': 'Mattina', 'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
-        'T': 'Diurno', 'TURNO': 'Diurno', 'D': 'Diurno', 'DIURNO': 'Diurno',
-        'N': 'Notte', 'NOTTE': 'Notte', 'R': 'Riposo', 'RIPOSO': 'Riposo',
-        'F': 'Ferie', 'FERIE': 'Ferie', 'MAL': 'Malattia', 'MALATTIA': 'Malattia'
-      };
-      const monthNames = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
-
-      // 1) Trova le righe dei giorni (almeno 15 numeri 1-31) e il mese scritto nella riga sopra
-      const getDayCols = row => {
-        const cols = {};
-        (row || []).forEach((v, c) => {
-          const n = parseInt(String(v == null ? '' : v).trim(), 10);
-          if(!isNaN(n) && n >= 1 && n <= 31 && String(v).trim() === String(n)) cols[n] = c;
-        });
-        return cols;
-      };
-      const blocks = [];
-      for(let r = 1; r < rows.length; r++) {
-        const dayCols = getDayCols(rows[r]);
-        if(Object.keys(dayCols).length < 15) continue;
-        let monthIdx = -1;
-        for(const v of (rows[r-1] || [])) {
-          const i = monthNames.indexOf(String(v == null ? '' : v).trim().toLowerCase());
-          if(i !== -1) { monthIdx = i; break; }
-        }
-        if(monthIdx === -1) continue;
-        blocks.push({ headerRow: r, month: monthIdx + 1, dayCols });
-      }
-      if(blocks.length === 0) {
-        setBanner('Non trovo tabelle mensili: sopra la riga dei giorni (1, 2, 3...) deve esserci il nome del mese (es. Gennaio).', 'error');
-        setStatus('Errore file');
-        return;
-      }
-
-      // 2) Leggi ogni blocco, abbina i nomi e rispetta ingresso/uscita
-      const allDbPeople = [...people, ...archivedPeople];
-      const findPerson = name => {
-        const c = cleanStr(name);
-        if(!c) return null;
-        return allDbPeople.find(p => cleanStr(p.name) === c)
-            || allDbPeople.find(p => { const pc = cleanStr(p.name); return pc.includes(c) || c.includes(pc); })
-            || null;
-      };
-
-      const byKey = new Map();
-      const unmatched = new Set();
-      const perMonth = {};
-
-      blocks.forEach((blk, bi) => {
-        const endRow = bi + 1 < blocks.length ? blocks[bi+1].headerRow - 1 : rows.length;
-        const daysInMonth = new Date(targetYear, blk.month, 0).getDate();
-        const mm = pad(blk.month);
-        perMonth[blk.month] = 0;
-
-        for(let r = blk.headerRow + 1; r < endRow; r++) {
-          const row = rows[r] || [];
-          const nameVal = String(row[0] == null ? '' : row[0]).trim();
-          if(!nameVal) continue;
-          const person = findPerson(nameVal);
-          if(!person) { unmatched.add(nameVal); continue; }
-
-          for(let d = 1; d <= daysInMonth; d++) {
-            const col = blk.dayCols[d];
-            if(col === undefined) continue;
-            const shiftDate = `${targetYear}-${mm}-${pad(d)}`;
-            if(person.start_date && shiftDate < person.start_date) continue;
-            if(person.last_day && shiftDate > person.last_day) continue;
-            const cell = row[col];
-            const shiftType = shiftMap[String(cell == null ? '' : cell).trim().toUpperCase()];
-            if(!shiftType) continue;
-            const key = person.id + '|' + shiftDate;
-            if(!byKey.has(key)) perMonth[blk.month]++;
-            byKey.set(key, { employee_id: person.id, shift_date: shiftDate, shift_type: shiftType });
-          }
-        }
-      });
-
-      const parsedShifts = [...byKey.values()];
-      if(parsedShifts.length === 0) {
-        setBanner('Nessun turno estratto. Controlla che i nomi nella colonna A corrispondano a quelli del database.', 'error');
-        setStatus('Errore file');
-        return;
-      }
-
-      // 3) Anteprima e conferma
-      const lines = Object.keys(perMonth).map(m => `• ${monthNames[m-1]} ${targetYear}: ${perMonth[m]} turni`);
-      let msg = `Trovati ${parsedShifts.length} turni in ${blocks.length} mesi:\n\n${lines.join('\n')}`;
-      if(unmatched.size) msg += `\n\nNomi NON riconosciuti (saltati):\n${[...unmatched].map(n => '• ' + n).join('\n')}`;
-      msg += '\n\nI turni già presenti per le stesse date verranno sovrascritti. Procedo con il salvataggio?';
-      if(!confirm(msg)) {
-        setBanner('Importazione annullata.', '');
-        setStatus('Annullato');
-        return;
-      }
-
-      // 4) Salvataggio
-      setStatus('Salvataggio su Supabase...');
-      setBanner(`Salvataggio di ${parsedShifts.length} turni in corso...`, '');
-      const batchSize = 100;
-      for(let b = 0; b < parsedShifts.length; b += batchSize) {
-        const { error: insErr } = await supabase.from('shifts').upsert(parsedShifts.slice(b, b + batchSize), { onConflict: 'employee_id,shift_date' });
-        if(insErr) {
-          setBanner('Errore salvataggio turni: ' + insErr.message, 'error');
-          setStatus('Errore DB');
-          return;
-        }
-      }
-      setBanner(`Importazione completata: ${parsedShifts.length} turni in ${blocks.length} mesi.`, 'ok');
-      await loadData();
-    } catch (err) {
-      setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
-    } finally {
-      e.target.value = '';
-    }
-  };
-  reader.readAsArrayBuffer(file);
 };
 
 // --- IMPORTAZIONE EXCEL DEL MESE CORRENTE CON MATCHING FLESSIBILE ---
