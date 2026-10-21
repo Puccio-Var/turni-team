@@ -23,7 +23,6 @@ main{max-width:98%;margin:24px auto;padding:0 12px}
 .tablewrap{overflow:auto}table{border-collapse:separate;border-spacing:0;width:100%}th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 4px;text-align:center}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8faff;cursor:pointer}
 th.selected-day,td.selected-day{background:#edf3ff!important}
 
-/* Evidenziazione Turni Scoperte / Rischio */
 th.day-danger { background: #ffebee !important; color: #c62828 !important; border-bottom: 2px solid #ef5350 !important; }
 th.day-warning { background: #fff8e1 !important; color: #f57f17 !important; border-bottom: 2px solid #ffca28 !important; }
 .alert-tag { display: block; font-size: 9px; font-weight: 800; margin-top: 2px; padding: 1px 3px; border-radius: 4px; }
@@ -41,7 +40,6 @@ th:first-child,td:first-child{position:sticky;left:0;text-align:left;min-width:1
 .shift{width:100%;border:0;border-radius:6px;padding:6px 2px;font-weight:750;font-size:11px;appearance:none;text-align:center;background-image:none}
 .shift:disabled{opacity:1}.shift:not(:disabled){cursor:pointer;outline:1px solid #ccd6e5}
 
-/* Flag Smartworking ad angolo */
 .sw-badge { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; background: #0284c7; border: 2px solid #fff; border-radius: 50%; z-index: 3; }
 
 table.month-view th, table.month-view td { padding: 5px 2px; }
@@ -1005,7 +1003,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE DI IMPORTAZIONE EXCEL A BLOCCHI (BATCH) SICURO ---
+// --- MOTORE DI IMPORTAZIONE EXCEL AGGIORNATO (INCLUDE LA LETTERA 'T') ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1065,9 +1063,11 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
+      // Mappatura aggiornata comprensiva della lettera 'T' (mappata su Pomeriggio, modificabile se necessario)
       const shiftMap = {
         'M': 'Mattina', 'MATTINA': 'Mattina',
         'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
+        'T': 'Pomeriggio', 'TURNO': 'Pomeriggio',
         'N': 'Notte', 'NOTTE': 'Notte',
         'R': 'Riposo', 'RIPOSO': 'Riposo',
         'F': 'Ferie', 'FERIE': 'Ferie',
@@ -1098,6 +1098,7 @@ $('excelFile').onchange = async (e) => {
 
         for(let day in dayColumns) {
           let colIdx = dayColumns[day];
+          if(colIdx === undefined) continue;
           let cellVal = String(row[colIdx] || '').trim().toUpperCase();
           if(!cellVal) continue;
 
@@ -1130,7 +1131,6 @@ $('excelFile').onchange = async (e) => {
 
       setStatus('Salvataggio turni a blocchi su Supabase...');
       
-      // Invio a blocchi di 100 righe per evitare timeout e errori di payload troppo grande
       const batchSize = 100;
       for (let i = 0; i < upsertList.length; i += batchSize) {
         const batch = upsertList.slice(i, i + batchSize);
