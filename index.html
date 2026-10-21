@@ -152,7 +152,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 <div class="stats">
   <div class="stat" data-shift-filter="Mattina" id="statMattina"><small>MATTINA</small><strong id="nMorning">0</strong></div>
   <div class="stat" data-shift-filter="Pomeriggio" id="statPomeriggio"><small>POMERIGGIO</small><strong id="nAfternoon">0</strong></div>
-  <div class="stat" data-shift-filter="Notte" id="statNotte"><small>NOTTE</small><strong id="nNight">0</strong></div>
+  <div class="stat" data-shift-filter="Notte" id="statNotte"><strong id="nNight">0</strong></div>
   <div class="stat" data-shift-filter="Riposo" id="statRiposo"><small>RIPOSO</small><strong id="nRest">0</strong></div>
   <div class="stat" data-shift-filter="Ferie" id="statFerie"><small>FERIE</small><strong id="nFerie">0</strong></div>
   <div class="stat" data-shift-filter="Malattia" id="statMalattia"><small>MALATTIA</small><strong id="nSick">0</strong></div>
@@ -1002,14 +1002,14 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE DI IMPORTAZIONE MULTI-MESE ROBUSTO E GARANTITO ---
+// --- MOTORE PARSER DEFINITIVO A BLOCCHI INDipendenti ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
   if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
 
   setStatus('Lettura file Excel...');
-  setBanner('Analisi del file Excel in corso...', '');
+  setBanner('Analisi multi-mese del file Excel in corso...', '');
 
   const reader = new FileReader();
   reader.onload = async function(evt) {
@@ -1045,7 +1045,7 @@ $('excelFile').onchange = async (e) => {
 
       let currentYear = 2026;
       let allParsedShifts = [];
-      let monthsFound = new Set();
+      let monthIndices = [];
       const allDbPeople = [...people, ...archivedPeople];
 
       const findPerson = (val1, val2) => {
@@ -1058,56 +1058,64 @@ $('excelFile').onchange = async (e) => {
         });
       };
 
-      let currentMonthNum = null;
-      let currentDayCols = {};
-
+      // 1. Individua le righe di intestazione di ciascun mese
       for (let r = 0; r < rows.length; r++) {
-        let row = rows[r] || [];
-        let rowStr = row.map(v => String(v || '')).join(' ').toLowerCase();
-
-        // 1. Verifica se la riga contiene la dicitura di un mese
-        let foundM = null;
+        let rowStr = (rows[r] || []).map(v => String(v || '')).join(' ').toLowerCase();
         for (let mName in monthMap) {
           if (rowStr.includes(mName)) {
-            foundM = monthMap[mName];
+            monthIndices.push({ index: r, monthNum: monthMap[mName], name: mName });
+            break;
+          }
+        }
+      }
+
+      if (monthIndices.length === 0) {
+        setBanner('Nessuna intestazione mese trovata nell\'Excel.', 'error');
+        return;
+      }
+
+      // 2. Elabora ciascun blocco di mese in modo totalmente indipendente
+      for (let i = 0; i < monthIndices.length; i++) {
+        let startR = monthIndices[i].index;
+        let mNum = monthIndices[i].monthNum;
+        let endR = (i + 1 < monthIndices.length) ? monthIndices[i + 1].index : rows.length;
+
+        // Cerca la riga dei giorni per questo mese specifico
+        let dayCols = {};
+        for (let rSearch = startR + 1; rSearch < Math.min(startR + 5, endR); rSearch++) {
+          let searchRow = rows[rSearch] || [];
+          let tempCols = {};
+          for (let c = 0; c < searchRow.length; c++) {
+            let vStr = String(searchRow[c] || '').trim().replace('.0', '');
+            let dNum = parseInt(vStr, 10);
+            if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
+              tempCols[dNum] = c;
+            }
+          }
+          if (Object.keys(tempCols).length >= 28) {
+            dayCols = tempCols;
             break;
           }
         }
 
-        if (foundM !== null) {
-          currentMonthNum = foundM;
-          monthsFound.add(foundM);
-          currentDayCols = {};
+        const monthStr = String(mNum).padStart(2, '0');
+        const lastDayOfMonth = new Date(currentYear, mNum, 0).getDate();
 
-          // Leggiamo la riga immediatamente successiva per mappare i giorni (1..31)
-          if (r + 1 < rows.length) {
-            let nextRow = rows[r + 1] || [];
-            for (let c = 0; c < nextRow.length; c++) {
-              let vStr = String(nextRow[c] || '').trim().replace('.0', '');
-              let dNum = parseInt(vStr, 10);
-              if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
-                currentDayCols[dNum] = c;
-              }
-            }
-          }
-          continue;
-        }
+        // Estrae i turni degli operatori in questo blocco
+        for (let rOp = startR + 1; rOp < endR; rOp++) {
+          let opRow = rows[rOp] || [];
+          if (opRow.length < 2) continue;
 
-        // 2. Se stiamo analizzando un mese valido, proviamo a leggere gli operatori
-        if (currentMonthNum !== null && row.length > 0) {
-          let val0 = row[0] || '';
-          let val1 = row[1] || '';
+          let val0 = opRow[0] || '';
+          let val1 = opRow[1] || '';
 
           let matchedPerson = findPerson(val0, val1);
           if (matchedPerson) {
-            const monthStr = String(currentMonthNum).padStart(2, '0');
-            const lastDayOfMonth = new Date(currentYear, currentMonthNum, 0).getDate();
-
             for (let d = 1; d <= lastDayOfMonth; d++) {
-              let colIdx = currentDayCols[d];
-              if (colIdx === undefined || colIdx >= row.length) continue;
+              let colIdx = dayCols[d];
+              if (colIdx === undefined || colIdx >= opRow.length) continue;
 
-              let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+              let cellVal = String(opRow[colIdx] || '').trim().toUpperCase();
               let shiftType = shiftMap[cellVal];
 
               if (shiftType) {
@@ -1124,37 +1132,33 @@ $('excelFile').onchange = async (e) => {
       }
 
       if (allParsedShifts.length === 0) {
-        setBanner('Nessun turno estratto. Verificare che il file contenga i mesi e i nomi degli operatori.', 'error');
+        setBanner('Nessun turno estratto. Controlla che i nomi degli operatori nel file corrispondano.', 'error');
         return;
       }
 
-      setStatus('Registrazione turni su Supabase...');
-      setBanner(`Trovati ${allParsedShifts.length} turni su ${monthsFound.size} mesi. Salvataggio in corso...`, '');
+      setStatus('Salvataggio su Supabase...');
+      setBanner(`Trovati ${allParsedShifts.length} turni distribuiti su ${monthIndices.length} mesi. Salvataggio in corso...`, '');
 
-      // Salvataggio a blocchi da 100 per massima stabilità
       const batchSize = 100;
       for (let b = 0; b < allParsedShifts.length; b += batchSize) {
         const batch = allParsedShifts.slice(b, b + batchSize);
         const { error: insErr } = await supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' });
         if(insErr) {
           console.error('Errore inserimento batch:', insErr);
-          setBanner('Errore durante il salvataggio: ' + insErr.message, 'error');
+          setBanner('Errore salvataggio turni: ' + insErr.message, 'error');
           setStatus('Errore DB');
           return;
         }
       }
 
-      // Posiziona la vista sul primo mese importato
-      if (monthsFound.size > 0) {
-        let firstMonth = Math.min(...Array.from(monthsFound));
-        anchor = new Date(currentYear, firstMonth - 1, 15, 12);
-      }
+      let firstMonth = monthIndices[0].monthNum;
+      anchor = new Date(currentYear, firstMonth - 1, 15, 12);
 
-      setBanner(`Importazione completata con successo! Inseriti/Aggiornati ${allParsedShifts.length} turni su ${monthsFound.size} mesi.`, 'ok');
+      setBanner(`Importazione completata con successo! Registrati ${allParsedShifts.length} turni su ${monthIndices.length} mesi.`, 'ok');
       await loadData();
 
     } catch (err) {
-      console.error('Errore lettura file Excel:', err);
+      console.error('Errore file Excel:', err);
       setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
     } finally {
       e.target.value = '';
