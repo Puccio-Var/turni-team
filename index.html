@@ -134,6 +134,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
       <button type="button" id="monthClearBtn" class="btn danger" style="padding:8px 12px;font-size:12px;">🗑️ Pulisci Mese</button>
       <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
       <button type="button" id="monthImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#176c43;border-color:#176c43;">📥 Importa Excel Mese</button>
+      <input type="file" id="yearExcelFile" accept=".xlsx, .xls" style="display:none">
+      <button type="button" id="yearImportBtn" class="btn primary" style="padding:8px 12px;font-size:12px;background:#7c3aed;border-color:#7c3aed;">📥 Importa Excel Anno</button>
     </div>
 
     <select id="filterPerson" class="field" style="min-width:170px;padding:9px 12px;">
@@ -1067,6 +1069,149 @@ $('monthClearBtn').onclick = async () => {
 
   setBanner(`Turni di ${monthName} eliminati con successo! Ora puoi importare il file pulito.`, 'ok');
   await loadData();
+};
+
+// --- IMPORTAZIONE EXCEL ANNO INTERO (più tabelle mensili nello stesso foglio) ---
+$('yearImportBtn').onclick = () => { $('yearExcelFile').click(); };
+
+$('yearExcelFile').onchange = async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!admin()) { setBanner('Devi essere autenticato come amministratore.', 'error'); e.target.value=''; return; }
+
+  const yearAns = prompt('Di quale anno sono i turni nel file?', String(anchor.getFullYear()));
+  if(yearAns === null) { e.target.value=''; return; }
+  const targetYear = parseInt(yearAns, 10);
+  if(isNaN(targetYear) || targetYear < 2000 || targetYear > 2100) { setBanner('Anno non valido.', 'error'); e.target.value=''; return; }
+
+  setStatus('Lettura file Excel...');
+  setBanner('Analisi del file Excel in corso...', '');
+
+  const reader = new FileReader();
+  reader.onload = async function(evt) {
+    try {
+      const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: null});
+
+      const cleanStr = s => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
+      const shiftMap = {
+        'M': 'Mattina', 'MATTINA': 'Mattina', 'P': 'Pomeriggio', 'POMERIGGIO': 'Pomeriggio',
+        'T': 'Diurno', 'TURNO': 'Diurno', 'D': 'Diurno', 'DIURNO': 'Diurno',
+        'N': 'Notte', 'NOTTE': 'Notte', 'R': 'Riposo', 'RIPOSO': 'Riposo',
+        'F': 'Ferie', 'FERIE': 'Ferie', 'MAL': 'Malattia', 'MALATTIA': 'Malattia'
+      };
+      const monthNames = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+
+      // 1) Trova le righe dei giorni (almeno 15 numeri 1-31) e il mese scritto nella riga sopra
+      const getDayCols = row => {
+        const cols = {};
+        (row || []).forEach((v, c) => {
+          const n = parseInt(String(v == null ? '' : v).trim(), 10);
+          if(!isNaN(n) && n >= 1 && n <= 31 && String(v).trim() === String(n)) cols[n] = c;
+        });
+        return cols;
+      };
+      const blocks = [];
+      for(let r = 1; r < rows.length; r++) {
+        const dayCols = getDayCols(rows[r]);
+        if(Object.keys(dayCols).length < 15) continue;
+        let monthIdx = -1;
+        for(const v of (rows[r-1] || [])) {
+          const i = monthNames.indexOf(String(v == null ? '' : v).trim().toLowerCase());
+          if(i !== -1) { monthIdx = i; break; }
+        }
+        if(monthIdx === -1) continue;
+        blocks.push({ headerRow: r, month: monthIdx + 1, dayCols });
+      }
+      if(blocks.length === 0) {
+        setBanner('Non trovo tabelle mensili: sopra la riga dei giorni (1, 2, 3...) deve esserci il nome del mese (es. Gennaio).', 'error');
+        setStatus('Errore file');
+        return;
+      }
+
+      // 2) Leggi ogni blocco, abbina i nomi e rispetta ingresso/uscita
+      const allDbPeople = [...people, ...archivedPeople];
+      const findPerson = name => {
+        const c = cleanStr(name);
+        if(!c) return null;
+        return allDbPeople.find(p => cleanStr(p.name) === c)
+            || allDbPeople.find(p => { const pc = cleanStr(p.name); return pc.includes(c) || c.includes(pc); })
+            || null;
+      };
+
+      const byKey = new Map();
+      const unmatched = new Set();
+      const perMonth = {};
+
+      blocks.forEach((blk, bi) => {
+        const endRow = bi + 1 < blocks.length ? blocks[bi+1].headerRow - 1 : rows.length;
+        const daysInMonth = new Date(targetYear, blk.month, 0).getDate();
+        const mm = pad(blk.month);
+        perMonth[blk.month] = 0;
+
+        for(let r = blk.headerRow + 1; r < endRow; r++) {
+          const row = rows[r] || [];
+          const nameVal = String(row[0] == null ? '' : row[0]).trim();
+          if(!nameVal) continue;
+          const person = findPerson(nameVal);
+          if(!person) { unmatched.add(nameVal); continue; }
+
+          for(let d = 1; d <= daysInMonth; d++) {
+            const col = blk.dayCols[d];
+            if(col === undefined) continue;
+            const shiftDate = `${targetYear}-${mm}-${pad(d)}`;
+            if(person.start_date && shiftDate < person.start_date) continue;
+            if(person.last_day && shiftDate > person.last_day) continue;
+            const cell = row[col];
+            const shiftType = shiftMap[String(cell == null ? '' : cell).trim().toUpperCase()];
+            if(!shiftType) continue;
+            const key = person.id + '|' + shiftDate;
+            if(!byKey.has(key)) perMonth[blk.month]++;
+            byKey.set(key, { employee_id: person.id, shift_date: shiftDate, shift_type: shiftType });
+          }
+        }
+      });
+
+      const parsedShifts = [...byKey.values()];
+      if(parsedShifts.length === 0) {
+        setBanner('Nessun turno estratto. Controlla che i nomi nella colonna A corrispondano a quelli del database.', 'error');
+        setStatus('Errore file');
+        return;
+      }
+
+      // 3) Anteprima e conferma
+      const lines = Object.keys(perMonth).map(m => `• ${monthNames[m-1]} ${targetYear}: ${perMonth[m]} turni`);
+      let msg = `Trovati ${parsedShifts.length} turni in ${blocks.length} mesi:\n\n${lines.join('\n')}`;
+      if(unmatched.size) msg += `\n\nNomi NON riconosciuti (saltati):\n${[...unmatched].map(n => '• ' + n).join('\n')}`;
+      msg += '\n\nI turni già presenti per le stesse date verranno sovrascritti. Procedo con il salvataggio?';
+      if(!confirm(msg)) {
+        setBanner('Importazione annullata.', '');
+        setStatus('Annullato');
+        return;
+      }
+
+      // 4) Salvataggio
+      setStatus('Salvataggio su Supabase...');
+      setBanner(`Salvataggio di ${parsedShifts.length} turni in corso...`, '');
+      const batchSize = 100;
+      for(let b = 0; b < parsedShifts.length; b += batchSize) {
+        const { error: insErr } = await supabase.from('shifts').upsert(parsedShifts.slice(b, b + batchSize), { onConflict: 'employee_id,shift_date' });
+        if(insErr) {
+          setBanner('Errore salvataggio turni: ' + insErr.message, 'error');
+          setStatus('Errore DB');
+          return;
+        }
+      }
+      setBanner(`Importazione completata: ${parsedShifts.length} turni in ${blocks.length} mesi.`, 'ok');
+      await loadData();
+    } catch (err) {
+      setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
 };
 
 // --- IMPORTAZIONE EXCEL DEL MESE CORRENTE CON MATCHING FLESSIBILE ---
