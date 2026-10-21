@@ -176,6 +176,19 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     </div>
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
+  
+  <!-- TASTO DI IMPORTAZIONE DEDICATO PER IL MESE CORRENTE (VISIBILE SOLO AGLI ADMIN IN VISTA MESE) -->
+  <div id="monthImportContainer" class="hidden" style="padding:16px;background:#f8fafc;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h4 style="margin:0 0 4px;font-size:14px;color:var(--blue);">📥 Importa Excel per questo Mese</h4>
+      <p style="margin:0;font-size:12px;color:var(--muted);">Carica il file Excel pulito (colonna A con nomi, riga giorni e turni) per il mese visualizzato.</p>
+    </div>
+    <div>
+      <input type="file" id="monthExcelFile" accept=".xlsx, .xls" style="display:none">
+      <button type="button" id="monthImportBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">Seleziona File per <span id="currentMonthNameLabel">questo mese</span></button>
+    </div>
+  </div>
+
   <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
 </section>
 
@@ -295,8 +308,8 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 </section>
 
 <section class="panel admin hidden" id="adminPanel">
-  <h3>Gestione colleghi e Importazione Turni</h3>
-  <div class="small">Aggiungi nuovi componenti, importa da Excel o gestisci l'archivio degli utenti disattivati.</div>
+  <h3>Gestione colleghi</h3>
+  <div class="small">Aggiungi nuovi componenti o gestisci l'archivio degli utenti disattivati.</div>
   
   <div class="formrow" style="margin-top:14px;align-items:center;border-top:1px solid var(--line);padding-top:14px;">
     <form id="addPersonForm" style="display:flex;gap:8px;flex:1;flex-wrap:wrap;">
@@ -305,8 +318,6 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     </form>
     
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="file" id="excelFile" accept=".xlsx, .xls" style="display:none">
-      <button type="button" id="importExcelBtn" class="btn primary" style="background:#176c43;border-color:#176c43;">📥 Importa Turni da Excel</button>
       <button type="button" id="toggleArchivedBtn" class="btn" style="background:#f1f5f9;color:#334155;">📦 Gestisci Operatori Archiviati</button>
     </div>
   </div>
@@ -406,7 +417,15 @@ function getDisplayPeople(){
 
 function render(){
  const dates=datesInView();
- $('period').textContent=view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}`:anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+ const monthNameStr = anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+ $('period').textContent = view==='week'?`${dates[0].toLocaleDateString('it-IT',{day:'numeric',month:'short'})} – ${dates[6].toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}` : monthNameStr;
+ 
+ // Mostra o nascondi il box di importazione mensile in base a se siamo in vista "Mese" e se siamo Admin
+ if(admin() && view === 'month') {
+   $('monthImportContainer').classList.remove('hidden');$('currentMonthNameLabel').textContent = monthNameStr;
+ } else {
+   $('monthImportContainer').classList.add('hidden');
+ }
  
  updatePersonDropdown();
  updateSwDropdown();
@@ -553,7 +572,6 @@ async function loadData(){
      const errMsg = pr.error?.message || sr.error?.message || ar.error?.message || swr.error?.message;
      setBanner('Errore di connessione a Supabase: ' + errMsg, 'error');
      setStatus('Errore DB');
-     console.error('Supabase Error:', pr.error || sr.error || ar.error || swr.error);
      return;
    }
 
@@ -567,7 +585,6 @@ async function loadData(){
    setStatus(admin()?'Amministratore collegato':'Consultazione pubblica');
    setBanner(admin()?'Accesso amministratore attivo.':'Calendario aggiornato. Consultazione pubblica attiva.','ok');
  } catch(err) {
-   console.error('Errore critico loadData:', err);
    setBanner('Errore critico di caricamento: ' + err.message, 'error');
    setStatus('Errore');
  }
@@ -1006,16 +1023,16 @@ $('addPersonForm').onsubmit = async (e) => {
   await loadData();
 };
 
-$('importExcelBtn').onclick = () => { $('excelFile').click(); };
+// --- NUOVO GESTORE DEDICATO ALL'IMPORTAZIONE DEL MESE CORRENTE ---
+$('monthImportBtn').onclick = () => { $('monthExcelFile').click(); };
 
-// --- MOTORE PARSER AGGIORNATO E COMPLETO PER TUTTI I GIORNI ---
-$('excelFile').onchange = async (e) => {
+$('monthExcelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
-  if(!admin()) { setBanner('Devi essere autenticato come amministratore per importare i turni.', 'error'); return; }
+  if(!admin()) { setBanner('Devi essere autenticato come amministratore.', 'error'); return; }
 
-  setStatus('Lettura file Excel...');
-  setBanner('Analisi multi-mese del file Excel in corso...', '');
+  setStatus('Lettura file Excel del mese...');
+  setBanner(`Importazione in corso per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}...`, '');
 
   const reader = new FileReader();
   reader.onload = async function(evt) {
@@ -1043,126 +1060,95 @@ $('excelFile').onchange = async (e) => {
         'D': 'Diurno', 'DIURNO': 'Diurno'
       };
 
-      const monthMap = {
-        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-        'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-        'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-      };
+      const targetYear = anchor.getFullYear();
+      const targetMonth = anchor.getMonth() + 1; // 1-12
+      const monthStr = String(targetMonth).padStart(2, '0');
+      const lastDayOfMonth = new Date(targetYear, targetMonth, 0).getDate();
 
-      let currentYear = 2026;
-      let allParsedShifts = [];
-      let monthIndices = [];
       const allDbPeople = [...people, ...archivedPeople];
 
-      const findPerson = (val1, val2) => {
-        let c1 = cleanStr(val1);
-        let c2 = cleanStr(val2);
-        return allDbPeople.find(p => {
-          let pClean = cleanStr(p.name);
-          return (c1 && (pClean === c1 || pClean.includes(c1) || c1.includes(pClean))) ||
-                 (c2 && (pClean === c2 || pClean.includes(c2) || c2.includes(pClean)));
-        });
-      };
+      // Trova la riga dei giorni (cerca una riga che contenga il numero 1 o 2)
+      let dayCols = {};
+      let headerRowIdx = -1;
 
-      // 1. Individua le righe di intestazione di ciascun mese
-      for (let r = 0; r < rows.length; r++) {
-        let rowStr = (rows[r] || []).map(v => String(v || '')).join(' ').toLowerCase();
-        for (let mName in monthMap) {
-          if (rowStr.includes(mName)) {
-            monthIndices.push({ index: r, monthNum: monthMap[mName], name: mName });
-            break;
+      for (let r = 0; r < Math.min(5, rows.length); r++) {
+        let row = rows[r] || [];
+        let tempCols = {};
+        for (let c = 0; c < row.length; c++) {
+          let vStr = String(row[c] || '').trim().replace('.0', '');
+          let dNum = parseInt(vStr, 10);
+          if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
+            tempCols[dNum] = c;
           }
+        }
+        if (Object.keys(tempCols).length >= 15) {
+          dayCols = tempCols;
+          headerRowIdx = r;
+          break;
         }
       }
 
-      if (monthIndices.length === 0) {
-        setBanner('Nessuna intestazione mese trovata nell\'Excel.', 'error');
+      if (headerRowIdx === -1) {
+        setBanner('Impossibile trovare la riga dei giorni (1, 2, 3...) nel file Excel.', 'error');
         return;
       }
 
-      // 2. Elabora ciascun blocco di mese coprendo l'intero arco dei giorni effettivi
-      for (let i = 0; i < monthIndices.length; i++) {
-        let startR = monthIndices[i].index;
-        let mNum = monthIndices[i].monthNum;
-        let endR = (i + 1 < monthIndices.length) ? monthIndices[i + 1].index : rows.length;
+      let parsedShifts = [];
 
-        // Cerca la riga dei giorni per questo mese specifico
-        let dayCols = {};
-        for (let rSearch = startR + 1; rSearch < Math.min(startR + 5, endR); rSearch++) {
-          let searchRow = rows[rSearch] || [];
-          for (let c = 0; c < searchRow.length; c++) {
-            let vStr = String(searchRow[c] || '').trim().replace('.0', '');
-            let dNum = parseInt(vStr, 10);
-            if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
-              dayCols[dNum] = c;
-            }
-          }
-          if (Object.keys(dayCols).length >= 28) {
-            break;
-          }
-        }
+      // Legge le righe successive all'intestazione dei giorni
+      for (let r = headerRowIdx + 1; r < rows.length; r++) {
+        let row = rows[r] || [];
+        if (row.length === 0) continue;
 
-        const monthStr = String(mNum).padStart(2, '0');
-        const lastDayOfMonth = new Date(currentYear, mNum, 0).getDate();
+        let nameVal = String(row[0] || '').trim();
+        if (!nameVal) continue;
 
-        // Estrae i turni degli operatori in questo blocco per TUTTI i giorni del mese
-        for (let rOp = startR + 1; rOp < endR; rOp++) {
-          let opRow = rows[rOp] || [];
-          if (opRow.length < 2) continue;
+        let cNameClean = cleanStr(nameVal);
+        let matchedPerson = allDbPeople.find(p => cleanStr(p.name) === cNameClean || cleanStr(p.name).includes(cNameClean) || cNameClean.includes(cleanStr(p.name)));
 
-          let val0 = opRow[0] || '';
-          let val1 = opRow[1] || '';
+        if (matchedPerson) {
+          for (let d = 1; d <= lastDayOfMonth; d++) {
+            let colIdx = dayCols[d];
+            if (colIdx === undefined || colIdx >= row.length) continue;
 
-          let matchedPerson = findPerson(val0, val1);
-          if (matchedPerson) {
-            for (let d = 1; d <= lastDayOfMonth; d++) {
-              let colIdx = dayCols[d];
-              if (colIdx === undefined || colIdx >= opRow.length) continue;
+            let cellVal = String(row[colIdx] || '').trim().toUpperCase();
+            let shiftType = shiftMap[cellVal];
 
-              let cellVal = String(opRow[colIdx] || '').trim().toUpperCase();
-              let shiftType = shiftMap[cellVal];
-
-              if (shiftType) {
-                let shiftDate = `${currentYear}-${monthStr}-${String(d).padStart(2, '0')}`;
-                allParsedShifts.push({
-                  employee_id: matchedPerson.id,
-                  shift_date: shiftDate,
-                  shift_type: shiftType
-                });
-              }
+            if (shiftType) {
+              let shiftDate = `${targetYear}-${monthStr}-${String(d).padStart(2, '0')}`;
+              parsedShifts.push({
+                employee_id: matchedPerson.id,
+                shift_date: shiftDate,
+                shift_type: shiftType
+              });
             }
           }
         }
       }
 
-      if (allParsedShifts.length === 0) {
-        setBanner('Nessun turno estratto. Controlla che i nomi degli operatori nel file corrispondano.', 'error');
+      if (parsedShifts.length === 0) {
+        setBanner('Nessun turno estratto. Controlla che i nomi nella colonna A corrispondano ai dipendenti.', 'error');
         return;
       }
 
       setStatus('Salvataggio su Supabase...');
-      setBanner(`Trovati ${allParsedShifts.length} turni distribuiti su ${monthIndices.length} mesi. Salvataggio in corso...`, '');
+      setBanner(`Trovati ${parsedShifts.length} turni per ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})}. Salvataggio in corso...`, '');
 
       const batchSize = 100;
-      for (let b = 0; b < allParsedShifts.length; b += batchSize) {
-        const batch = allParsedShifts.slice(b, b + batchSize);
+      for (let b = 0; b < parsedShifts.length; b += batchSize) {
+        const batch = parsedShifts.slice(b, b + batchSize);
         const { error: insErr } = await supabase.from('shifts').upsert(batch, { onConflict: 'employee_id,shift_date' });
         if(insErr) {
-          console.error('Errore inserimento batch:', insErr);
           setBanner('Errore salvataggio turni: ' + insErr.message, 'error');
           setStatus('Errore DB');
           return;
         }
       }
 
-      let firstMonth = monthIndices[0].monthNum;
-      anchor = new Date(currentYear, firstMonth - 1, 15, 12);
-
-      setBanner(`Importazione completata con successo! Registrati ${allParsedShifts.length} turni su ${monthIndices.length} mesi.`, 'ok');
+      setBanner(`Importazione di ${anchor.toLocaleDateString('it-IT',{month:'long',year:'numeric'})} completata con successo!`, 'ok');
       await loadData();
 
     } catch (err) {
-      console.error('Errore file Excel:', err);
       setBanner('Errore nella lettura del file Excel: ' + err.message, 'error');
     } finally {
       e.target.value = '';
