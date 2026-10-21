@@ -152,7 +152,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 <div class="stats">
   <div class="stat" data-shift-filter="Mattina" id="statMattina"><small>MATTINA</small><strong id="nMorning">0</strong></div>
   <div class="stat" data-shift-filter="Pomeriggio" id="statPomeriggio"><small>POMERIGGIO</small><strong id="nAfternoon">0</strong></div>
-  <div class="stat" data-shift-filter="Notte" id="statNotte"><strong id="nNight">0</strong></div>
+  <div class="stat" data-shift-filter="Notte" id="statNotte"><small>NOTTE</small><strong id="nNight">0</strong></div>
   <div class="stat" data-shift-filter="Riposo" id="statRiposo"><small>RIPOSO</small><strong id="nRest">0</strong></div>
   <div class="stat" data-shift-filter="Ferie" id="statFerie"><small>FERIE</small><strong id="nFerie">0</strong></div>
   <div class="stat" data-shift-filter="Malattia" id="statMalattia"><small>MALATTIA</small><strong id="nSick">0</strong></div>
@@ -336,7 +336,7 @@ const $=id=>document.getElementById(id);
 const addDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
 const monday=d=>{let x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
 const labelDate=d=>d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
-function setBanner(text,kind=''){ $('banner').textContent=text;$('banner').className='banner '+kind; }
+function setBanner(text,kind=''){ $('banner').textContent=text;$('banner'].className='banner '+kind; }
 function setStatus(t){$('status').textContent=t}
 function datesInView(){if(view==='week'){let s=monday(anchor);return Array.from({length:7},(_,i)=>addDays(s,i))}let first=new Date(anchor.getFullYear(),anchor.getMonth(),1,12),last=new Date(anchor.getFullYear(),anchor.getMonth()+1,0,12);return Array.from({length:last.getDate()},(_,i)=>addDays(first,i))}
 function getShift(personId,dateIso){return shifts.find(s=>s.employee_id===personId&&s.shift_date===dateIso)?.shift_type||''}
@@ -1002,7 +1002,7 @@ $('addPersonForm').onsubmit = async (e) => {
 
 $('importExcelBtn').onclick = () => { $('excelFile').click(); };
 
-// --- MOTORE PARSER DEFINITIVO A BLOCCHI INDipendenti ---
+// --- MOTORE PARSER AGGIORNATO E COMPLETO PER TUTTI I GIORNI ---
 $('excelFile').onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1074,7 +1074,7 @@ $('excelFile').onchange = async (e) => {
         return;
       }
 
-      // 2. Elabora ciascun blocco di mese in modo totalmente indipendente
+      // 2. Elabora ciascun blocco di mese coprendo l'intero arco dei giorni effettivi
       for (let i = 0; i < monthIndices.length; i++) {
         let startR = monthIndices[i].index;
         let mNum = monthIndices[i].monthNum;
@@ -1084,16 +1084,14 @@ $('excelFile').onchange = async (e) => {
         let dayCols = {};
         for (let rSearch = startR + 1; rSearch < Math.min(startR + 5, endR); rSearch++) {
           let searchRow = rows[rSearch] || [];
-          let tempCols = {};
           for (let c = 0; c < searchRow.length; c++) {
             let vStr = String(searchRow[c] || '').trim().replace('.0', '');
             let dNum = parseInt(vStr, 10);
             if (!isNaN(dNum) && dNum >= 1 && dNum <= 31) {
-              tempCols[dNum] = c;
+              dayCols[dNum] = c;
             }
           }
-          if (Object.keys(tempCols).length >= 28) {
-            dayCols = tempCols;
+          if (Object.keys(dayCols).length >= 28) {
             break;
           }
         }
@@ -1101,7 +1099,7 @@ $('excelFile').onchange = async (e) => {
         const monthStr = String(mNum).padStart(2, '0');
         const lastDayOfMonth = new Date(currentYear, mNum, 0).getDate();
 
-        // Estrae i turni degli operatori in questo blocco
+        // Estrae i turni degli operatori in questo blocco per TUTTI i giorni del mese
         for (let rOp = startR + 1; rOp < endR; rOp++) {
           let opRow = rows[rOp] || [];
           if (opRow.length < 2) continue;
