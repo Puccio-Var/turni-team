@@ -186,7 +186,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   <div class="panelhead" style="background:#dcfce7;border-bottom-color:#bbf7d0;">
     <div>
       <h3 style="color:#166534;">💻 Richiesta Smartworking (Area Operatori)</h3>
-      <p style="color:#15803d;">Seleziona il tuo nome e la data desiderata dal calendario. Il sistema verificherà le regole di presenza minima.</p>
+      <p style="color:#15803d;">Seleziona il tuo nome e la data dal calendario. Regole: No Domenica, No Notte, min. 2 persone in ufficio.</p>
     </div>
   </div>
   <div style="padding:16px;">
@@ -606,8 +606,63 @@ async function setShift(personId,date,type){
  render();setStatus('Modifiche salvate');setBanner('Turno aggiornato e pubblicato.','ok');
 }
 
-// Verifica e Validazione Regole Smartworking (Lato Pubblico)
-function validatePublicSwSelection() {
+// Funzione di verifica regole completa che scarica i dati da Supabase per qualsiasi data
+async function checkSmartworkingEligibility(personId, reqDate) {
+  // 1. Controllo Domenica
+  const [y, m, d] = reqDate.split('-');
+  const dateObj = new Date(y, m - 1, d, 12);
+  if(dateObj.getDay() === 0) { // 0 = Domenica
+    return { valid: false, reason: 'Di Domenica non è previsto lo Smartworking.' };
+  }
+
+  // Scarica da Supabase i turni reali e le richieste di SW per la data esatta
+  const [shiftsRes, swRes] = await Promise.all([
+    supabase.from('shifts').select('employee_id, shift_type').eq('shift_date', reqDate),
+    supabase.from('smartworking_requests').select('employee_id, shift_type').eq('request_date', reqDate)
+  ]);
+
+  if(shiftsRes.error || swRes.error) {
+    return { valid: false, reason: 'Errore durante la verifica con il database.' };
+  }
+
+  const dateShifts = shiftsRes.data || [];
+  const dateSw = swRes.data || [];
+
+  // 2. Controllo Turno dell'operatore (Deve essere Mattina o Pomeriggio)
+  const userShiftRecord = dateShifts.find(s => s.employee_id === personId);
+  const userShift = userShiftRecord?.shift_type;
+
+  if(!userShiftRecord || !['Mattina', 'Pomeriggio'].includes(userShift)) {
+    return { valid: false, reason: `L'operatore non è in turno di Mattina o Pomeriggio in questa data (Turno attuale: ${userShift || 'Nessuno'}).` };
+  }
+
+  // 3. Controllo se ha già uno Smartworking attivo per se stesso
+  const alreadyOwn = dateSw.some(sw => sw.employee_id === personId);
+  if(alreadyOwn) {
+    return { valid: false, reason: 'L\'operatore ha già uno Smartworking attivo per questa data.' };
+  }
+
+  // 4. Presenza Minima in Ufficio (Contiamo quanti operatori sono in quel turno)
+  const totalInShift = dateShifts.filter(s => s.shift_type === userShift).length;
+  if(totalInShift <= 2) {
+    return { valid: false, reason: `Presenza minima in ufficio non garantita: ci sono solo ${totalInShift} operatori in turno di ${userShift}. Devono rimanere in ufficio almeno 2 persone.` };
+  }
+
+  // 5. Conflitto con altro collega nello stesso turno
+  const conflict = dateSw.some(sw => {
+    const otherShift = dateShifts.find(s => s.employee_id === sw.employee_id);
+    return otherShift && otherShift.shift_type === userShift;
+  });
+
+  if(conflict) {
+    return { valid: false, reason: `Il turno di ${userShift} per questo giorno è già stato richiesto in Smartworking da un altro operatore.` };
+  }
+
+  return { valid: true, shiftType: userShift, totalInShift };
+}
+
+// Validazione Interattiva nel Form Pubblico
+async function validatePublicSwSelection() {
   const personId = $('swPerson').value;
   const reqDate = $('swDate').value;
   const submitBtn = $('swSubmitBtn');
@@ -619,62 +674,20 @@ function validatePublicSwSelection() {
     return;
   }
 
-  // Regola 1: Controllo Domenica
-  const [y, m, d] = reqDate.split('-');
-  const dateObj = new Date(y, m - 1, d, 12);
-  if(dateObj.getDay() === 0) { // 0 = Domenica
+  infoMsg.style.color = 'var(--muted)';
+  infoMsg.textContent = 'Verifica disponibilità in corso...';
+
+  const check = await checkSmartworkingEligibility(personId, reqDate);
+
+  if(!check.valid) {
     submitBtn.disabled = true;
     infoMsg.style.color = '#d32f2f';
-    infoMsg.textContent = `❌ Non consentito: Di Domenica non è possibile richiedere lo Smartworking.`;
-    return;
+    infoMsg.textContent = `❌ ${check.reason}`;
+  } else {
+    submitBtn.disabled = false;
+    infoMsg.style.color = '#15803d';
+    infoMsg.textContent = `✅ Data disponibile! Turno: ${check.shiftType} (${check.totalInShift} op. in turno). Puoi inviare la richiesta.`;
   }
-
-  // Regola 2: Controllo Turno (Deve essere Mattina o Pomeriggio, NON Notte, Riposo, etc.)
-  const shiftRecord = shifts.find(s => s.employee_id === personId && s.shift_date === reqDate);
-  const targetShift = shiftRecord?.shift_type;
-
-  if(!shiftRecord || !['Mattina', 'Pomeriggio'].includes(targetShift)) {
-    submitBtn.disabled = true;
-    infoMsg.style.color = '#d32f2f';
-    infoMsg.textContent = `❌ Non consentito: L'operatore non ha un turno di Mattina o Pomeriggio in questa data (${targetShift || 'Nessun turno'}).`;
-    return;
-  }
-
-  // Regola 3: Presenza Minima in Ufficio (devono esserci ALMENO 3 persone in organico per quel turno per permettere ad 1 di andare in SW)
-  const totalInShift = shifts.filter(s => s.shift_date === reqDate && s.shift_type === targetShift).length;
-  if(totalInShift <= 2) {
-    submitBtn.disabled = true;
-    infoMsg.style.color = '#d32f2f';
-    infoMsg.textContent = `❌ Presenza minima in ufficio: Ci sono solo ${totalInShift} operatori in turno di ${targetShift}. Deve essere garantita la presenza fisica di almeno 2 persone.`;
-    return;
-  }
-
-  // Regola 4: Se l'operatore ha già lo smartworking attivo per quel giorno
-  const alreadyOwn = isSmartworking(personId, reqDate);
-  if(alreadyOwn) {
-    submitBtn.disabled = true;
-    infoMsg.style.color = '#d32f2f';
-    infoMsg.textContent = `❌ Hai già uno Smartworking attivo per questa data.`;
-    return;
-  }
-
-  // Regola 5: Conflitto con altro collega nello stesso turno
-  const conflict = smartworking.some(sw => {
-    if(sw.request_date !== reqDate) return false;
-    const otherShift = shifts.find(s => s.employee_id === sw.employee_id && s.shift_date === reqDate);
-    return otherShift && otherShift.shift_type === targetShift;
-  });
-
-  if(conflict) {
-    submitBtn.disabled = true;
-    infoMsg.style.color = '#d32f2f';
-    infoMsg.textContent = `❌ Non disponibile: Il turno di ${targetShift} per il ${reqDate.split('-').reverse().join('/')} è già stato prenotato da un altro collega.`;
-    return;
-  }
-
-  submitBtn.disabled = false;
-  infoMsg.style.color = '#15803d';
-  infoMsg.textContent = `✅ Data disponibile! Turno: ${targetShift} (${totalInShift} op. totali). Puoi inviare la richiesta.`;
 }
 
 // LOGICA ADMIN: Mostra i badge degli Smartworking attivi per l'operatore
@@ -736,36 +749,16 @@ $('swAdminPerson').onchange = () => {
 };
 $('swAdminDate').onchange = validateAdminSwSelection;
 
-async function processSmartworkingAdd(personId, reqDate) {
-  const [y, m, d] = reqDate.split('-');
-  const dateObj = new Date(y, m - 1, d, 12);
-  if(dateObj.getDay() === 0) {
-    alert('Impossibile assegnare lo smartworking di Domenica.');
-    return;
-  }
+// Invia Richiesta Pubblica Smartworking con doppia sicurezza
+$('swForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const personId = $('swPerson').value;
+  const reqDate = $('swDate').value;
+  if(!personId || !reqDate) return;
 
-  const shiftRecord = shifts.find(s => s.employee_id === personId && s.shift_date === reqDate);
-  if(!shiftRecord || !['Mattina', 'Pomeriggio'].includes(shiftRecord.shift_type)) {
-    alert('Impossibile richiedere lo smartworking: l\'operatore non ha un turno di "Mattina" o "Pomeriggio" assegnato in questa data.');
-    return;
-  }
-
-  const targetShift = shiftRecord.shift_type;
-
-  const totalInShift = shifts.filter(s => s.shift_date === reqDate && s.shift_type === targetShift).length;
-  if(totalInShift <= 2) {
-    alert(`Impossibile registrare lo smartworking: ci sono solo ${totalInShift} operatori per il turno di ${targetShift}. Deve essere garantita la presenza di almeno 2 persone in ufficio.`);
-    return;
-  }
-
-  const conflict = smartworking.some(sw => {
-    if(sw.request_date !== reqDate) return false;
-    const otherShift = shifts.find(s => s.employee_id === sw.employee_id && s.shift_date === reqDate);
-    return otherShift && otherShift.shift_type === targetShift;
-  });
-
-  if(conflict) {
-    alert(`Impossibile registrare lo smartworking: il turno di ${targetShift} per il giorno ${reqDate.split('-').reverse().join('/')} è già stato richiesto da un altro operatore!`);
+  const check = await checkSmartworkingEligibility(personId, reqDate);
+  if(!check.valid) {
+    alert(`Impossibile inviare la richiesta:\n${check.reason}`);
     return;
   }
 
@@ -773,7 +766,7 @@ async function processSmartworkingAdd(personId, reqDate) {
   const { error } = await supabase.from('smartworking_requests').upsert({
     employee_id: personId,
     request_date: reqDate,
-    shift_type: targetShift
+    shift_type: check.shiftType
   }, { onConflict: 'employee_id,request_date' });
 
   if(error) {
@@ -783,27 +776,42 @@ async function processSmartworkingAdd(personId, reqDate) {
   }
 
   setBanner('Richiesta Smartworking registrata con successo!', 'ok');
-  await loadData();
-}
-
-$('swForm').onsubmit = async (e) => {
-  e.preventDefault();
-  const personId = $('swPerson').value;
-  const reqDate = $('swDate').value;
-  if(!personId || !reqDate) return;
-  await processSmartworkingAdd(personId, reqDate);
   $('swDate').value = '';
+  await loadData();
   validatePublicSwSelection();
 };
 
+// Assegnazione Admin Smartworking
 $('swAdminAddBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
   const reqDate = $('swAdminDate').value;
   if(!personId || !reqDate) { alert('Seleziona sia un operatore che una data.'); return; }
-  await processSmartworkingAdd(personId, reqDate);
+
+  const check = await checkSmartworkingEligibility(personId, reqDate);
+  if(!check.valid) {
+    alert(`Impossibile assegnare lo smartworking:\n${check.reason}`);
+    return;
+  }
+
+  setStatus('Invio richiesta Smartworking...');
+  const { error } = await supabase.from('smartworking_requests').upsert({
+    employee_id: personId,
+    request_date: reqDate,
+    shift_type: check.shiftType
+  }, { onConflict: 'employee_id,request_date' });
+
+  if(error) {
+    setBanner('Errore assegnazione smartworking: ' + error.message, 'error');
+    setStatus('Errore');
+    return;
+  }
+
+  setBanner('Smartworking assegnato con successo!', 'ok');
+  await loadData();
   updateAdminSwBadges();
 };
 
+// Rimozione Admin Smartworking
 $('swAdminRemoveBtn').onclick = async () => {
   const personId = $('swAdminPerson').value;
   const reqDate = $('swAdminDate').value;
