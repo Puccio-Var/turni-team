@@ -138,6 +138,7 @@ main.log-mode>#logView{display:block}
 #roster tfoot tr.cnt-first td{border-top:2px solid #cbd5e1}
 #roster tfoot td:first-child{position:sticky;left:0;z-index:1;background:#f8fafc;font-size:11px;font-weight:700;color:#64748b;text-align:left}
 #roster tfoot td.selected-day{background:#edf3ff!important}
+#roster tfoot td.cnt-two{background:#fffdea!important}
 #roster tfoot td.cnt-one{color:#b45309;background:#fff8e1!important}
 #roster tfoot td.cnt-zero{color:#c62828;background:#ffebee!important;font-weight:800}
 .cnt-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
@@ -692,12 +693,11 @@ function render(){
    displayPeople.forEach(p=>{ const sh=getShift(p.id,dIso); if(c[sh]!==undefined) c[sh]++; });
    return {dIso,c};
  });
- if(dayCnt.some(x=>x.c.Diurno>0)) footTypes.push(['Diurno','#94a3b8']);
  rosterTable.querySelector('tfoot').innerHTML=footTypes.map(([t,col],i)=>
    `<tr class="cnt-row${i===0?' cnt-first':''}"><td><span class="cnt-dot" style="background:${col}"></span>In turno · ${t}</td>`+
    dayCnt.map(x=>{
      const n=x.c[t];
-     const lvl=(t==='Diurno')?'':(n===0?'cnt-zero':(n===1?'cnt-one':''));
+     const lvl=(n===0?'cnt-zero':(n===1?'cnt-one':(n===2?'cnt-two':'')));
      return `<td data-date-col="${x.dIso}" class="${x.dIso===selectedDateIso?'selected-day':''} ${lvl}">${n}</td>`;
    }).join('')+'</tr>'
  ).join('');
