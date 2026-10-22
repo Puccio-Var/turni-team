@@ -112,8 +112,26 @@ main.stats-mode>#statsView{display:block}
 .st-hi{background:#fee2e2;color:#991b1b;font-weight:800}
 .st-lo{background:#dbeafe;color:#1e40af;font-weight:800}
 .st-avg td{background:#f1f5f9;font-weight:800}
-.st-note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.st-note{font-size:12px;color:var(--muted);margin:10px 0 0}.st-in{width:84px;padding:6px 8px;text-align:center}.st-neg{color:#b91c1c;font-weight:800}.st-pos{color:#166534;font-weight:800}.st-setup{background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;font-size:13px;margin-top:12px}.st-setup pre{white-space:pre-wrap;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;margin:8px 0 0;user-select:all}
 @media(max-width:700px){.st-kpis{grid-template-columns:repeat(2,1fr)}.st-chart{height:280px}}
+
+/* ===== Storico modifiche (solo admin) ===== */
+#logView{display:none}
+main.log-mode>*:not(#logView){display:none!important}
+main.log-mode>#logView{display:block}
+.lg-day{margin:20px 0 8px;font-size:13px;font-weight:800;color:var(--blue);text-transform:capitalize}
+.lg-item{display:flex;gap:12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid #94a3b8;border-radius:10px;background:var(--card);margin-bottom:6px;font-size:13px;align-items:flex-start;line-height:1.5}
+.lg-insert{border-left-color:#16a34a}.lg-update{border-left-color:#f59e0b}.lg-delete{border-left-color:#dc2626}.lg-multi{border-left-color:#2457d6}
+.lg-time{font-weight:800;color:var(--muted);min-width:44px}
+.lg-body{flex:1;min-width:0}
+.lg-badge{display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;margin-right:6px;letter-spacing:.03em;vertical-align:1px}
+.lg-b-insert{background:#dcfce7;color:#166534}.lg-b-update{background:#fef3c7;color:#92400e}.lg-b-delete{background:#fee2e2;color:#991b1b}.lg-b-multi{background:#dbeafe;color:#1e40af}
+.lg-old{background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:6px;font-weight:700}
+.lg-new{background:#dcfce7;color:#166534;padding:1px 7px;border-radius:6px;font-weight:700}
+.lg-pub{color:#0369a1;font-weight:800}.lg-adm{font-weight:800}.lg-db{color:#7c3aed;font-weight:800}
+.lg-body details{margin-top:6px}.lg-body summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:12px}
+.lg-sub{margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--muted)}
+.lg-sub li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -163,6 +181,7 @@ main.stats-mode>#statsView{display:block}
       <button id="monthTab" class="active">Mese</button>
     </div>
     <button class="btn primary hidden" id="statsBtn">📊 Statistiche</button>
+    <button class="btn primary hidden" id="logBtn">📜 Storico modifiche</button>
     <button class="btn" id="csv">Esporta CSV</button>
     <button class="btn primary" id="printBtn">🖨️ Stampa / PDF</button>
   </div>
@@ -373,6 +392,10 @@ main.stats-mode>#statsView{display:block}
       <label>Dal <input type="date" id="stFrom" class="field" style="padding:7px 10px;"></label>
       <label>Al <input type="date" id="stTo" class="field" style="padding:7px 10px;"></label>
     </div>
+    <div class="st-controls">
+      <button type="button" class="btn" id="stCeasedBtn">➕ Mostra anche i cessati</button>
+      <span class="small" id="stCeasedHint">Ora vedi solo i dipendenti attivi.</span>
+    </div>
     <div class="st-kpis" id="stKpis"></div>
   </section>
 
@@ -392,19 +415,56 @@ main.stats-mode>#statsView{display:block}
   <section class="panel" style="margin-bottom:20px;">
     <div class="panelhead">
       <div>
-        <h3>🛡️ Report Copertura</h3>
-        <p>Giorni in cui troppi colleghi sono contemporaneamente assenti dal servizio.</p>
+        <h3>🏖️ Ferie e residuo ore</h3>
+        <p>Ferie dell'anno scelto (godute e già pianificate) e residuo del monte ore. Monte ore e ore per giorno di ferie si modificano direttamente nella tabella.</p>
       </div>
+      <label style="font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">Anno <select id="stVacYear" class="field" style="padding:7px 10px;"></select></label>
+    </div>
+    <div id="stVacSetup"></div>
+    <div class="tablewrap"><table class="st-table" id="stVacTable"></table></div>
+    <p class="st-note" id="stVacMsg">Ore ferie godute = giorni di ferie nei turni dell'anno × ore per giorno. Residuo = monte ore − ore godute.</p>
+  </section>
+</section>
+<!-- Vista Storico modifiche (solo amministratore) -->
+<section id="logView">
+  <section class="panel" style="margin-bottom:20px;">
+    <div class="panelhead">
+      <div>
+        <h3>📜 Storico delle modifiche</h3>
+        <p>Area riservata all'amministratore: chi ha modificato i turni, quando e cosa è cambiato. Registra anche le richieste di smartworking inserite dalla parte pubblica.</p>
+      </div>
+      <button type="button" class="btn" id="lgBack">← Torna ai turni</button>
     </div>
     <div class="st-controls">
-      <label>Soglia critica: assenti ≥ <input type="number" id="stThr" class="field" value="25" min="10" max="100" step="5" style="width:70px;padding:7px 10px;"> % del team</label>
-      <label><input type="checkbox" class="stType" value="Ferie" checked> Ferie</label>
-      <label><input type="checkbox" class="stType" value="Riposo"> Riposo</label>
-      <label><input type="checkbox" class="stType" value="Malattia"> Malattia</label>
+      <button type="button" class="btn" data-lg-range="today">Oggi</button>
+      <button type="button" class="btn" data-lg-range="7">Ultimi 7 giorni</button>
+      <button type="button" class="btn" data-lg-range="30">Ultimi 30 giorni</button>
+      <button type="button" class="btn" data-lg-range="all">Tutto</button>
+      <label>Dal <input type="date" id="lgFrom" class="field" style="padding:7px 10px;"></label>
+      <label>Al <input type="date" id="lgTo" class="field" style="padding:7px 10px;"></label>
     </div>
-    <div class="st-chart"><canvas id="stCovChart"></canvas></div>
-    <div class="tablewrap"><table class="st-table" id="stCovTable"></table></div>
-    <p class="st-note">Il team di ogni giorno comprende solo chi è in servizio quel giorno (rispetta data di ingresso e uscita). I giorni senza turni inseriti vengono ignorati. 🎉 = il periodo include una festività nazionale.</p>
+    <div class="st-controls">
+      <select id="lgWho" class="field" style="padding:8px 10px;">
+        <option value="">👥 Chi: tutti</option>
+        <option value="authenticated">🛠️ Solo amministratore</option>
+        <option value="anon">🌐 Solo parte pubblica</option>
+        <option value="database">🗄️ Solo modifiche dirette al database</option>
+      </select>
+      <select id="lgWhat" class="field" style="padding:8px 10px;">
+        <option value="">📂 Cosa: tutto</option>
+        <option value="shifts">Turni</option>
+        <option value="smartworking_requests">Richieste smartworking</option>
+        <option value="employees">Dipendenti</option>
+      </select>
+      <select id="lgEmp" class="field" style="padding:8px 10px;min-width:170px;"></select>
+    </div>
+    <div class="st-kpis" id="lgKpis"></div>
+  </section>
+  <section class="panel" style="margin-bottom:20px;">
+    <div id="lgSetup"></div>
+    <div id="lgList"></div>
+    <div style="text-align:center;margin-top:12px;"><button type="button" class="btn hidden" id="lgMore">Mostra altre modifiche</button></div>
+    <p class="st-note" id="lgNote"></p>
   </section>
 </section>
 </main>
@@ -439,13 +499,13 @@ function updateAuthUI(showLoginForm = false){
     $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
     $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
     $('swAdminPanel').classList.remove('hidden');$('swPanel').classList.add('hidden');
-    $('historyPanel').classList.remove('hidden');$('adminActionButtons').classList.remove('hidden');$('statsBtn').classList.remove('hidden');
+    $('historyPanel').classList.remove('hidden');$('adminActionButtons').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('logBtn').classList.remove('hidden');
     updateHistoryDropdown();
     updateSwAdminDropdown();
   } else {
     $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
     $('swAdminPanel').classList.add('hidden');$('swPanel').classList.remove('hidden');
-    $('historyPanel').classList.add('hidden');$('adminActionButtons').classList.add('hidden');$('statsBtn').classList.add('hidden');closeStats();
+    $('historyPanel').classList.add('hidden');$('adminActionButtons').classList.add('hidden');$('statsBtn').classList.add('hidden');$('logBtn').classList.add('hidden');closeStats();closeLog();
     if(showLoginForm){
       $('loginOpen').classList.add('hidden');
       $('topLoginForm').classList.remove('hidden');$('email').focus();
@@ -1334,9 +1394,27 @@ await loadData();
 var statsCharts = {};
 var statsInitDone = false;
 var statsLastEq = [];
+var stShowCeased = false;
+var stBalances = {};
 const ST_WORKED = ['Mattina','Pomeriggio','Notte','Diurno'];
+// Ore nette (tolta la pausa): Mattina 06-14, Pomeriggio 14-22, Notte 22-06 (pausa 30'); Diurno 09-18 (pausa 60')
+const ST_HOURS = {Mattina:7.5, Pomeriggio:7.5, Notte:7.5, Diurno:8};
 const stFmt = d => d.split('-').reverse().join('/');
 const stDow = d => new Date(d + 'T12:00:00').getDay();
+const stNum = x => (Math.round(x*100)/100).toString().replace('.',',');
+
+const ST_SQL = `create table public.vacation_balances (
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  year int not null,
+  hours_total numeric,
+  hours_per_day numeric not null default 8,
+  updated_at timestamptz default now(),
+  primary key (employee_id, year)
+);
+alter table public.vacation_balances enable row level security;
+create policy "ferie lettura admin" on public.vacation_balances for select to authenticated using (true);
+create policy "ferie inserimento admin" on public.vacation_balances for insert to authenticated with check (true);
+create policy "ferie modifica admin" on public.vacation_balances for update to authenticated using (true) with check (true);`;
 
 function stEaster(y){
   const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
@@ -1354,9 +1432,11 @@ function stHolidays(y){
 }
 const stIsHoliday = d => stHolidays(+d.slice(0,4)).has(d);
 
+// Di default solo i dipendenti attivi; con il pulsante anche i cessati
 function stPeople(){
+  const src = stShowCeased ? [...people, ...archivedPeople] : [...people];
   const seen = new Set();
-  return [...people, ...archivedPeople].filter(p => !seen.has(p.id) && seen.add(p.id));
+  return src.filter(p => !seen.has(p.id) && seen.add(p.id));
 }
 function stDays(from, to){
   const out = [];
@@ -1375,10 +1455,21 @@ function stShiftMap(from, to){
   return m;
 }
 
+function stFillYears(){
+  const sel = $('stVacYear'), prev = sel.value;
+  const years = new Set([new Date().getFullYear()]);
+  shifts.forEach(s => years.add(+s.shift_date.slice(0,4)));
+  const list = [...years].sort((a,b) => b - a);
+  sel.innerHTML = list.map(y => `<option value="${y}">${y}</option>`).join('');
+  sel.value = (prev && list.includes(+prev)) ? prev : String(new Date().getFullYear());
+}
+
 function openStats(){
   if(!admin()) return;
+  document.querySelector('main').classList.remove('log-mode');
   document.querySelector('main').classList.add('stats-mode');
   initStatsOnce();
+  stFillYears();
   renderStats();
   window.scrollTo(0,0);
 }
@@ -1412,16 +1503,23 @@ function initStatsOnce(){
   document.querySelectorAll('[data-st-range]').forEach(b => b.onclick = () => stSetRange(b.dataset.stRange));
   $('stFrom').onchange = renderStats;
   $('stTo').onchange = renderStats;
-  $('stThr').onchange = renderStats;
-  document.querySelectorAll('.stType').forEach(c => c.onchange = renderStats);
   $('stBack').onclick = closeStats;
   $('stCsvBtn').onclick = stExportCsv;
+  $('stCeasedBtn').onclick = () => {
+    stShowCeased = !stShowCeased;
+    $('stCeasedBtn').textContent = stShowCeased ? '✓ Cessati inclusi (clicca per nascondere)' : '➕ Mostra anche i cessati';
+    $('stCeasedBtn').classList.toggle('primary', stShowCeased);
+    $('stCeasedHint').textContent = stShowCeased ? 'Stai vedendo anche i dipendenti cessati.' : 'Ora vedi solo i dipendenti attivi.';
+    renderStats();
+  };
+  $('stVacYear').onchange = renderVacation;
+  $('stVacTable').addEventListener('change', stVacChanged);
 }
 
 function stCompute(from, to){
   const days = stDays(from, to), map = stShiftMap(from, to), ppl = stPeople();
-  const eq = ppl.map(p => {
-    const r = {name:p.name, giorni:0, lavorati:0, notti:0, weekend:0, festivi:0, ferie:0, riposo:0};
+  return ppl.map(p => {
+    const r = {name:p.name, giorni:0, lavorati:0, ore:0, notti:0, weekend:0, festivi:0, ferie:0, riposo:0};
     days.forEach(d => {
       if(!stInService(p,d)) return;
       const t = map.get(p.id + '|' + d);
@@ -1429,6 +1527,7 @@ function stCompute(from, to){
       r.giorni++;
       if(ST_WORKED.includes(t)){
         r.lavorati++;
+        r.ore += ST_HOURS[t] || 0;
         if(t === 'Notte') r.notti++;
         const w = stDow(d); if(w === 0 || w === 6) r.weekend++;
         if(stIsHoliday(d)) r.festivi++;
@@ -1437,26 +1536,12 @@ function stCompute(from, to){
     });
     return r;
   }).filter(r => r.giorni > 0).sort((a,b) => a.name.localeCompare(b.name,'it'));
-
-  const cov = [];
-  days.forEach(d => {
-    let staff = 0, planned = 0, ferie = 0, riposo = 0, malattia = 0;
-    ppl.forEach(p => {
-      if(!stInService(p,d)) return;
-      staff++;
-      const t = map.get(p.id + '|' + d);
-      if(!t) return;
-      planned++;
-      if(t === 'Ferie') ferie++; else if(t === 'Riposo') riposo++; else if(t === 'Malattia') malattia++;
-    });
-    if(planned > 0) cov.push({d, staff, ferie, riposo, malattia});
-  });
-  return {eq, cov};
 }
 
 function stMakeChart(key, canvasId, config){
   if(statsCharts[key]){ statsCharts[key].destroy(); statsCharts[key] = null; }
   const cv = $(canvasId);
+  if(!cv) return;
   if(typeof Chart === 'undefined'){
     cv.parentElement.innerHTML = '<p class="st-note">Impossibile caricare la libreria dei grafici (Chart.js). Controlla la connessione e ricarica la pagina.</p>';
     return;
@@ -1469,10 +1554,9 @@ function renderStats(){
   let from = $('stFrom').value, to = $('stTo').value;
   if(!from || !to) return;
   if(from > to){ const t = from; from = to; to = t; $('stFrom').value = from; $('stTo').value = to; }
-  const {eq, cov} = stCompute(from, to);
+  const eq = stCompute(from, to);
   statsLastEq = eq;
 
-  // ---- Equità
   const n = eq.length || 1;
   const avg = k => eq.reduce((a,r) => a + r[k], 0) / n;
   const A = {notti:avg('notti'), weekend:avg('weekend'), festivi:avg('festivi')};
@@ -1498,68 +1582,97 @@ function renderStats(){
       scales:{y:{beginAtZero:true, ticks:{precision:0}}}
     }
   });
-  const head = '<thead><tr><th>Operatore</th><th>Giorni pianificati</th><th>Lavorati</th><th>Notti</th><th>Weekend</th><th>Festività</th><th>Ferie</th><th>Riposo</th></tr></thead>';
-  const body = eq.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${r.giorni}</td><td>${r.lavorati}</td>
+  const head = '<thead><tr><th>Operatore</th><th>Giorni pianificati</th><th>Lavorati</th><th>Ore lavorate</th><th>Notti</th><th>Weekend</th><th>Festività</th><th>Ferie (gg)</th><th>Riposo</th></tr></thead>';
+  const body = eq.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${r.giorni}</td><td>${r.lavorati}</td><td>${stNum(r.ore)}</td>
     <td class="${cls(r.notti,'notti')}">${r.notti}</td><td class="${cls(r.weekend,'weekend')}">${r.weekend}</td><td class="${cls(r.festivi,'festivi')}">${r.festivi}</td>
     <td>${r.ferie}</td><td>${r.riposo}</td></tr>`).join('');
   const f1 = x => (Math.round(x*10)/10).toString().replace('.',',');
-  const foot = eq.length ? `<tr class="st-avg"><td>Media team</td><td>${f1(avg('giorni'))}</td><td>${f1(avg('lavorati'))}</td><td>${f1(A.notti)}</td><td>${f1(A.weekend)}</td><td>${f1(A.festivi)}</td><td>${f1(avg('ferie'))}</td><td>${f1(avg('riposo'))}</td></tr>` : '';
+  const foot = eq.length ? `<tr class="st-avg"><td>Media team</td><td>${f1(avg('giorni'))}</td><td>${f1(avg('lavorati'))}</td><td>${f1(avg('ore'))}</td><td>${f1(A.notti)}</td><td>${f1(A.weekend)}</td><td>${f1(A.festivi)}</td><td>${f1(avg('ferie'))}</td><td>${f1(avg('riposo'))}</td></tr>` : '';
   $('stEqTable').innerHTML = eq.length ? head + '<tbody>' + body + foot + '</tbody>' : '<tbody><tr><td>Nessun turno nel periodo selezionato.</td></tr></tbody>';
 
-  // ---- Copertura
-  const types = [...document.querySelectorAll('.stType')].filter(c => c.checked).map(c => c.value);
-  const thr = Math.max(10, Math.min(100, parseInt($('stThr').value,10) || 25));
-  const rows = cov.map(c => {
-    const abs = (types.includes('Ferie')?c.ferie:0) + (types.includes('Riposo')?c.riposo:0) + (types.includes('Malattia')?c.malattia:0);
-    return {...c, abs, limit: Math.ceil(thr * c.staff / 100), critical: c.staff > 0 && (abs / c.staff * 100) >= thr};
-  });
-  stMakeChart('cov','stCovChart',{
-    type:'bar',
-    data:{
-      labels: rows.map(r => stFmt(r.d).slice(0,5)),
-      datasets:[
-        {type:'bar', label:'Colleghi assenti', data:rows.map(r => r.abs), backgroundColor:rows.map(r => r.critical ? '#dc2626' : '#93c5fd'), borderRadius:2},
-        {type:'line', label:'Soglia critica', data:rows.map(r => r.limit), borderColor:'#dc2626', borderDash:[6,4], borderWidth:1.5, pointRadius:0, fill:false, stepped:true}
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{title:(it) => it.length ? stFmt(rows[it[0].dataIndex].d) : ''}}},
-      scales:{y:{beginAtZero:true, ticks:{precision:0}}, x:{ticks:{maxTicksLimit:16, autoSkip:true}}}
-    }
-  });
-
-  // raggruppa i giorni critici consecutivi
-  const periods = [];
-  rows.filter(r => r.critical).forEach(r => {
-    const last = periods[periods.length-1];
-    const prevDay = last ? iso(addDays(new Date(+last.to.slice(0,4), +last.to.slice(5,7)-1, +last.to.slice(8,10), 12), 1)) : null;
-    if(last && prevDay === r.d){
-      last.to = r.d; last.days++; last.peak = Math.max(last.peak, r.abs); last.peakPct = Math.max(last.peakPct, Math.round(r.abs / r.staff * 100));
-      last.ferieMax = Math.max(last.ferieMax, r.ferie); if(stIsHoliday(r.d)) last.hol = true;
-    } else {
-      periods.push({from:r.d, to:r.d, days:1, peak:r.abs, peakPct:Math.round(r.abs / r.staff * 100), ferieMax:r.ferie, hol:stIsHoliday(r.d)});
-    }
-  });
-  $('stCovTable').innerHTML = periods.length
-    ? '<thead><tr><th>Periodo</th><th>Giorni critici</th><th>Picco assenti</th><th>Picco in ferie</th><th></th></tr></thead><tbody>' +
-      periods.map(p => `<tr><td>${p.from === p.to ? stFmt(p.from) : 'dal ' + stFmt(p.from) + ' al ' + stFmt(p.to)}</td><td>${p.days}</td><td>${p.peak} (${p.peakPct}%)</td><td>${p.ferieMax}</td><td>${p.hol ? '🎉' : ''}</td></tr>`).join('') + '</tbody>'
-    : '<tbody><tr><td>✅ Nessun giorno critico con la soglia impostata.</td></tr></tbody>';
-
-  // ---- KPI
   const tot = k => eq.reduce((a,r) => a + r[k], 0);
   $('stKpis').innerHTML = [
     ['TURNI LAVORATI', tot('lavorati')],
     ['NOTTI', tot('notti')],
     ['WEEKEND LAVORATI', tot('weekend')],
-    ['GIORNI CRITICI', rows.filter(r => r.critical).length]
+    ['GIORNI DI FERIE', tot('ferie')]
   ].map(([t,v]) => `<div class="st-kpi"><small>${t}</small><strong>${v}</strong></div>`).join('');
+
+  renderVacation();
+}
+
+// ---------- Ferie e residuo ore (dati salvati in Supabase, tabella vacation_balances, visibile solo da loggato)
+var stVacToken = 0;
+async function renderVacation(){
+  if(!admin()) return;
+  const year = parseInt($('stVacYear').value, 10);
+  if(!year) return;
+  const token = ++stVacToken;
+  const days = stDays(`${year}-01-01`, `${year}-12-31`), map = stShiftMap(`${year}-01-01`, `${year}-12-31`);
+  $('stVacSetup').innerHTML = '';
+
+  stBalances = {};
+  const { data, error } = await supabase.from('vacation_balances').select('employee_id,hours_total,hours_per_day').eq('year', year);
+  if(token !== stVacToken) return;
+  if(error){
+    $('stVacTable').innerHTML = '';
+    $('stVacSetup').innerHTML = `<div class="st-setup"><b>Per usare il residuo ferie serve creare una tabella su Supabase</b> (una volta sola).<br>Apri Supabase → SQL Editor → incolla questo codice → Run. Poi ricarica la pagina.<pre>${ST_SQL}</pre></div>`;
+    return;
+  }
+  (data || []).forEach(r => { stBalances[r.employee_id] = {total: r.hours_total === null ? null : Number(r.hours_total), perDay: Number(r.hours_per_day)}; });
+
+  const rows = stPeople().map(p => {
+    let n = 0;
+    days.forEach(d => { if(stInService(p,d) && map.get(p.id + '|' + d) === 'Ferie') n++; });
+    const hasShifts = days.some(d => stInService(p,d) && map.has(p.id + '|' + d));
+    return {p, n, hasShifts};
+  }).filter(r => people.some(a => a.id === r.p.id) || r.hasShifts)
+    .sort((a,b) => a.p.name.localeCompare(b.p.name,'it'));
+
+  const cell = r => {
+    const b = stBalances[r.p.id] || {};
+    const perDay = b.perDay || 8;
+    const total = (b.total === null || b.total === undefined) ? '' : b.total;
+    const taken = r.n * perDay;
+    let res = '—', rc = '';
+    if(total !== ''){ const v = total - taken; res = stNum(v); rc = v < 0 ? 'st-neg' : 'st-pos'; }
+    return `<tr data-emp="${r.p.id}" data-days="${r.n}"><td>${escapeHtml(r.p.name)}</td><td>${r.n}</td>
+      <td><input class="field st-in" type="number" min="0" step="0.25" data-f="perDay" value="${perDay}"></td>
+      <td class="stTaken">${stNum(taken)}</td>
+      <td><input class="field st-in" type="number" min="0" step="0.25" data-f="total" value="${total}" placeholder="ore"></td>
+      <td class="stRes ${rc}">${res}</td></tr>`;
+  };
+  $('stVacTable').innerHTML = rows.length
+    ? '<thead><tr><th>Operatore</th><th>Ferie anno (gg)</th><th>Ore per giorno</th><th>Ore godute</th><th>Monte ore annuo</th><th>Residuo (ore)</th></tr></thead><tbody>' + rows.map(cell).join('') + '</tbody>'
+    : '<tbody><tr><td>Nessun dipendente da mostrare.</td></tr></tbody>';
+  $('stVacMsg').textContent = 'Ore ferie godute = giorni di ferie nei turni dell\'anno × ore per giorno. Residuo = monte ore − ore godute. Le modifiche si salvano da sole.';
+}
+
+async function stVacChanged(e){
+  const inp = e.target.closest('input[data-f]');
+  if(!inp || !admin()) return;
+  const tr = inp.closest('tr');
+  const id = tr.dataset.emp, days = +tr.dataset.days, year = parseInt($('stVacYear').value, 10);
+  const perDay = parseFloat(tr.querySelector('[data-f="perDay"]').value.replace(',','.'));
+  const totRaw = tr.querySelector('[data-f="total"]').value.trim().replace(',','.');
+  const total = totRaw === '' ? null : parseFloat(totRaw);
+  if(isNaN(perDay) || perDay <= 0 || (total !== null && isNaN(total))){ $('stVacMsg').textContent = 'Valore non valido.'; return; }
+  const taken = days * perDay;
+  tr.querySelector('.stTaken').textContent = stNum(taken);
+  const rc = tr.querySelector('.stRes');
+  if(total === null){ rc.textContent = '—'; rc.className = 'stRes'; }
+  else { const v = total - taken; rc.textContent = stNum(v); rc.className = 'stRes ' + (v < 0 ? 'st-neg' : 'st-pos'); }
+  $('stVacMsg').textContent = 'Salvataggio...';
+  const { error } = await supabase.from('vacation_balances').upsert(
+    {employee_id:id, year, hours_total:total, hours_per_day:perDay, updated_at:new Date().toISOString()},
+    {onConflict:'employee_id,year'});
+  $('stVacMsg').textContent = error ? 'Errore di salvataggio: ' + error.message : 'Salvato ✓';
 }
 
 function stExportCsv(){
   if(!statsLastEq.length){ setBanner('Nessun dato da esportare nel periodo selezionato.','error'); return; }
-  const head = ['Operatore','Giorni pianificati','Lavorati','Notti','Weekend','Festività','Ferie','Riposo'];
-  const lines = [head, ...statsLastEq.map(r => [r.name,r.giorni,r.lavorati,r.notti,r.weekend,r.festivi,r.ferie,r.riposo])]
+  const head = ['Operatore','Giorni pianificati','Lavorati','Ore lavorate','Notti','Weekend','Festività','Ferie (gg)','Riposo'];
+  const lines = [head, ...statsLastEq.map(r => [r.name,r.giorni,r.lavorati,r.ore,r.notti,r.weekend,r.festivi,r.ferie,r.riposo])]
     .map(l => l.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(';'));
   const blob = new Blob(['\ufeff' + lines.join('\n')], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
@@ -1569,6 +1682,244 @@ function stExportCsv(){
 }
 
 $('statsBtn').onclick = openStats;
+
+// ================= STORICO MODIFICHE (solo admin) =================
+var logInitDone = false, logGroups = [], logShown = 0, lgToken = 0;
+const LG_PAGE = 120, LG_MAX = 5000;
+const LG_TABLES = {shifts:'turni', smartworking_requests:'richieste smartworking', employees:'dipendenti'};
+const LG_ACTION = {INSERT:'Inserimento', UPDATE:'Modifica', DELETE:'Rimozione'};
+const lgDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+const lgTime = t => new Date(t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+const lgDay = t => new Date(t).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+const LOG_SQL = `create table public.audit_log (
+  id bigint generated always as identity primary key,
+  changed_at timestamptz not null default now(),
+  table_name text not null,
+  action text not null,
+  employee_id uuid,
+  employee_name text,
+  record_date date,
+  old_value text,
+  new_value text,
+  actor_role text,
+  actor_email text
+);
+create index audit_log_changed_at_idx on public.audit_log (changed_at desc);
+alter table public.audit_log enable row level security;
+create policy "storico lettura admin" on public.audit_log for select to authenticated using (true);
+
+create or replace function public.log_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  o jsonb := case when TG_OP <> 'INSERT' then to_jsonb(OLD) end;
+  n jsonb := case when TG_OP <> 'DELETE' then to_jsonb(NEW) end;
+  r jsonb := coalesce(n, o);
+  v_emp uuid; v_name text; v_date date; v_old text; v_new text;
+  v_jwt jsonb := auth.jwt();
+begin
+  if TG_TABLE_NAME = 'employees' then
+    v_emp := (r->>'id')::uuid;
+    v_name := r->>'name';
+    if o is not null then
+      v_old := format('%s · %s · inizio %s · ultimo giorno %s', o->>'name',
+        case when (o->>'active')::boolean then 'attivo' else 'cessato' end,
+        coalesce(o->>'start_date','-'), coalesce(o->>'last_day','-'));
+    end if;
+    if n is not null then
+      v_new := format('%s · %s · inizio %s · ultimo giorno %s', n->>'name',
+        case when (n->>'active')::boolean then 'attivo' else 'cessato' end,
+        coalesce(n->>'start_date','-'), coalesce(n->>'last_day','-'));
+    end if;
+  else
+    v_emp := (r->>'employee_id')::uuid;
+    v_date := coalesce(r->>'shift_date', r->>'request_date')::date;
+    v_old := o->>'shift_type';
+    v_new := n->>'shift_type';
+  end if;
+
+  if TG_OP = 'UPDATE' and v_old is not distinct from v_new
+     and (o->>'shift_date') is not distinct from (n->>'shift_date')
+     and (o->>'request_date') is not distinct from (n->>'request_date')
+     and (o->>'employee_id') is not distinct from (n->>'employee_id') then
+    return null;
+  end if;
+
+  if v_name is null and v_emp is not null then
+    select name into v_name from public.employees where id = v_emp;
+  end if;
+
+  insert into public.audit_log (table_name, action, employee_id, employee_name, record_date, old_value, new_value, actor_role, actor_email)
+  values (TG_TABLE_NAME, TG_OP, v_emp, coalesce(v_name, '(operatore eliminato)'), v_date, v_old, v_new,
+          coalesce(v_jwt->>'role', 'database'), v_jwt->>'email');
+  return null;
+end $$;
+
+create trigger audit_shifts after insert or update or delete on public.shifts
+  for each row execute function public.log_change();
+create trigger audit_smartworking after insert or update or delete on public.smartworking_requests
+  for each row execute function public.log_change();
+create trigger audit_employees after insert or update or delete on public.employees
+  for each row execute function public.log_change();`;
+
+function lgWho(r){
+  if(r.actor_role === 'authenticated') return {cls:'lg-adm', txt: r.actor_email ? 'Amministratore (' + r.actor_email + ')' : 'Amministratore'};
+  if(r.actor_role === 'anon') return {cls:'lg-pub', txt:'Utente pubblico'};
+  return {cls:'lg-db', txt:'Database (modifica diretta)'};
+}
+function lgSentence(r){
+  const n = '<b>' + escapeHtml(r.employee_name || '?') + '</b>';
+  const d = r.record_date ? '<b>' + lgDate(r.record_date) + '</b>' : '';
+  const o = r.old_value ? '<span class="lg-old">' + escapeHtml(r.old_value) + '</span>' : '';
+  const nw = r.new_value ? '<span class="lg-new">' + escapeHtml(r.new_value) + '</span>' : '';
+  if(r.table_name === 'shifts'){
+    if(r.action === 'INSERT') return `ha inserito il turno ${nw} a ${n} per il ${d}`;
+    if(r.action === 'DELETE') return `ha rimosso il turno ${o} di ${n} del ${d}`;
+    return `ha cambiato il turno di ${n} del ${d}: ${o} → ${nw}`;
+  }
+  if(r.table_name === 'smartworking_requests'){
+    if(r.action === 'INSERT') return `ha inserito una richiesta di smartworking per ${n} il ${d} (turno ${nw})`;
+    if(r.action === 'DELETE') return `ha rimosso la richiesta di smartworking di ${n} del ${d} (turno ${o})`;
+    return `ha modificato la richiesta di smartworking di ${n} del ${d}: ${o} → ${nw}`;
+  }
+  if(r.action === 'INSERT') return `ha aggiunto il dipendente ${n}: ${nw}`;
+  if(r.action === 'DELETE') return `ha eliminato il dipendente ${n}`;
+  return `ha modificato il dipendente ${n}: ${o} → ${nw}`;
+}
+function lgGroupRows(rows){
+  const groups = [];
+  rows.forEach(r => {
+    const key = r.table_name + '|' + (r.actor_role || '') + '|' + (r.actor_email || '');
+    const t = new Date(r.changed_at).getTime();
+    const g = groups[groups.length - 1];
+    if(g && g.key === key && (g.lastT - t) <= 20000){ g.rows.push(r); g.lastT = t; }
+    else groups.push({key, rows:[r], lastT:t});
+  });
+  return groups;
+}
+function lgRenderGroup(g){
+  const r0 = g.rows[0], who = lgWho(r0);
+  const actor = `<span class="${who.cls}">${escapeHtml(who.txt)}</span>`;
+  if(g.rows.length === 1){
+    const a = r0.action.toLowerCase();
+    return `<div class="lg-item lg-${a}"><div class="lg-time">${lgTime(r0.changed_at)}</div><div class="lg-body"><span class="lg-badge lg-b-${a}">${LG_ACTION[r0.action].toUpperCase()}</span>${actor} ${lgSentence(r0)}</div></div>`;
+  }
+  const cnt = {INSERT:0, UPDATE:0, DELETE:0};
+  g.rows.forEach(r => cnt[r.action]++);
+  const parts = [];
+  if(cnt.INSERT) parts.push(cnt.INSERT + ' inseriti');
+  if(cnt.UPDATE) parts.push(cnt.UPDATE + ' modificati');
+  if(cnt.DELETE) parts.push(cnt.DELETE + ' rimossi');
+  const dates = g.rows.map(r => r.record_date).filter(Boolean).sort();
+  const emps = new Set(g.rows.map(r => r.employee_id).filter(Boolean)).size;
+  let extra = '';
+  if(dates.length) extra += ` · periodo dal <b>${lgDate(dates[0])}</b> al <b>${lgDate(dates[dates.length-1])}</b>`;
+  if(emps > 1 && r0.table_name !== 'employees') extra += ` · ${emps} operatori`;
+  const shown = g.rows.slice(0, 300);
+  const list = shown.map(r => `<li>${lgTime(r.changed_at)} — ${lgSentence(r)}</li>`).join('');
+  const more = g.rows.length > shown.length ? `<li>…e altre ${g.rows.length - shown.length} modifiche</li>` : '';
+  return `<div class="lg-item lg-multi"><div class="lg-time">${lgTime(r0.changed_at)}</div><div class="lg-body"><span class="lg-badge lg-b-multi">MODIFICA MULTIPLA</span>${actor} ha effettuato <b>${g.rows.length}</b> modifiche su ${LG_TABLES[r0.table_name] || r0.table_name} (${parts.join(', ')})${extra}
+    <details><summary>Mostra il dettaglio</summary><ul class="lg-sub">${list}${more}</ul></details></div></div>`;
+}
+function lgRenderList(){
+  let html = '', lastDay = '';
+  logGroups.slice(0, logShown).forEach(g => {
+    const day = lgDay(g.rows[0].changed_at);
+    if(day !== lastDay){ html += `<h4 class="lg-day">${day}</h4>`; lastDay = day; }
+    html += lgRenderGroup(g);
+  });
+  $('lgList').innerHTML = html || '<p class="st-note">Nessuna modifica registrata con i filtri scelti.</p>';
+  $('lgMore').classList.toggle('hidden', logShown >= logGroups.length);
+}
+
+function lgSetRange(kind){
+  const now = new Date(), today = iso(now);
+  let from = today;
+  if(kind === '7') from = iso(addDays(now,-6));
+  else if(kind === '30') from = iso(addDays(now,-29));
+  else if(kind === 'all') from = '2000-01-01';
+  $('lgFrom').value = from; $('lgTo').value = today;
+  renderLog();
+}
+function lgFillEmployees(){
+  const sel = $('lgEmp'), prev = sel.value;
+  const seen = new Set();
+  const list = [...people, ...archivedPeople].filter(p => !seen.has(p.id) && seen.add(p.id)).sort((a,b) => a.name.localeCompare(b.name,'it'));
+  sel.innerHTML = '<option value="">👤 Tutti gli operatori</option>' + list.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  sel.value = prev;
+}
+function initLogOnce(){
+  if(logInitDone) return;
+  logInitDone = true;
+  const today = iso(new Date());
+  $('lgFrom').value = iso(addDays(new Date(),-29)); $('lgTo').value = today;
+  document.querySelectorAll('[data-lg-range]').forEach(b => b.onclick = () => lgSetRange(b.dataset.lgRange));
+  ['lgFrom','lgTo','lgWho','lgWhat','lgEmp'].forEach(id => $(id).onchange = renderLog);
+  $('lgBack').onclick = closeLog;
+  $('lgMore').onclick = () => { logShown += LG_PAGE; lgRenderList(); };
+}
+function openLog(){
+  if(!admin()) return;
+  const m = document.querySelector('main');
+  m.classList.remove('stats-mode'); m.classList.add('log-mode');
+  initLogOnce(); lgFillEmployees(); renderLog();
+  window.scrollTo(0,0);
+}
+function closeLog(){
+  const m = document.querySelector('main');
+  if(m) m.classList.remove('log-mode');
+}
+
+async function renderLog(){
+  if(!admin()) return;
+  const from = $('lgFrom').value, to = $('lgTo').value;
+  if(!from || !to) return;
+  const token = ++lgToken;
+  $('lgSetup').innerHTML = '';
+  $('lgList').innerHTML = '<p class="st-note">Caricamento in corso...</p>';
+  $('lgMore').classList.add('hidden');
+  const t0 = new Date(from + 'T00:00:00').toISOString(), t1 = new Date(to + 'T23:59:59.999').toISOString();
+  let all = [], off = 0;
+  while(true){
+    let q = supabase.from('audit_log').select('*').gte('changed_at', t0).lte('changed_at', t1);
+    const who = $('lgWho').value, what = $('lgWhat').value, emp = $('lgEmp').value;
+    if(what) q = q.eq('table_name', what);
+    if(emp) q = q.eq('employee_id', emp);
+    if(who === 'authenticated' || who === 'anon') q = q.eq('actor_role', who);
+    else if(who === 'database') q = q.not('actor_role', 'in', '(authenticated,anon)');
+    const { data, error } = await q.order('changed_at', {ascending:false}).order('id', {ascending:false}).range(off, off + 999);
+    if(token !== lgToken) return;
+    if(error){
+      $('lgList').innerHTML = '';
+      $('lgKpis').innerHTML = '';
+      if(/audit_log|does not exist|schema cache/i.test(error.message || '')){
+        $('lgSetup').innerHTML = `<div class="st-setup"><b>Per attivare lo storico serve creare una tabella e dei controlli su Supabase</b> (una volta sola).<br>Apri Supabase → SQL Editor → incolla questo codice → Run. Poi ricarica la pagina. Lo storico parte dal momento in cui lo crei: le modifiche precedenti non sono recuperabili.<pre>${LOG_SQL}</pre></div>`;
+      } else {
+        $('lgList').innerHTML = '<p class="st-note">Errore nel caricamento dello storico: ' + escapeHtml(error.message || '') + '</p>';
+      }
+      return;
+    }
+    all = all.concat(data || []);
+    if(!data || data.length < 1000 || all.length >= LG_MAX) break;
+    off += 1000;
+  }
+  logGroups = lgGroupRows(all);
+  logShown = LG_PAGE;
+  const cnt = t => all.filter(r => r.table_name === t).length;
+  const last = all.length ? new Date(all[0].changed_at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+  $('lgKpis').innerHTML = [
+    ['MODIFICHE TOTALI', all.length],
+    ['SUI TURNI', cnt('shifts')],
+    ['SMARTWORKING', cnt('smartworking_requests')],
+    ['ULTIMA MODIFICA', last]
+  ].map(([t,v]) => `<div class="st-kpi"><small>${t}</small><strong style="${typeof v === 'string' ? 'font-size:20px;margin-top:12px;' : ''}">${v}</strong></div>`).join('');
+  lgRenderList();
+  $('lgNote').textContent = all.length >= LG_MAX
+    ? `Mostrate le ultime ${LG_MAX} modifiche: restringi il periodo per vedere le precedenti.`
+    : 'Le modifiche fatte in rapida successione dalla stessa persona (ad esempio un\'importazione Excel) sono raggruppate in una sola riga espandibile.';
+}
+
+$('logBtn').onclick = openLog;
 </script>
 <script>
 // Sfondo animato dell'intestazione: rete di nodi collegati con piccoli "pacchetti dati" in movimento
