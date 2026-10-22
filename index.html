@@ -7,17 +7,17 @@
 <style>
 :root{--bg:#f4f7fb;--ink:#182230;--muted:#687588;--line:#e3e9f1;--blue:#2457d6;--card:#fff;--red:#d32f2f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{background:#14213d;color:white;padding:22px max(24px,calc((100% - 98%) / 2))}.head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.title{font-size:26px;font-weight:800;margin:0}
+header{position:relative;overflow:hidden;background:linear-gradient(120deg,#0a1328,#14213d 40%,#0e2c58 70%,#14213d);background-size:240% 240%;animation:hdrShift 20s ease-in-out infinite;color:white;padding:22px max(24px,calc((100% - 98%) / 2))}#hdrFx{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}@keyframes hdrShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@media(prefers-reduced-motion:reduce){header{animation:none}}@media print{#hdrFx{display:none}}.head{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.title{font-size:26px;font-weight:800;margin:0}
 main{max-width:98%;margin:24px auto;padding:0 12px}
 .toolbar,.left,.right,.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar{justify-content:space-between;margin-bottom:16px}.toolbar h2{font-size:19px;margin:0 6px}.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-weight:700;color:var(--ink);cursor:pointer}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.danger{background:#fff0f0;color:var(--red);border-color:#f2caca}.btn:disabled{opacity:.45;cursor:not-allowed}.tabs{background:#e8edf5;padding:4px;border-radius:11px}.tabs button{border:0;background:transparent;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}.tabs button.active{background:#fff;box-shadow:0 1px 4px #0001}.banner{padding:12px 14px;border-radius:12px;margin-bottom:15px;background:#fff8e6;border:1px solid #f0dfb4;color:#765816;font-size:13px;line-height:1.5}.banner.error{background:#fff0f0;border-color:#f2caca;color:#9d2525}.banner.ok{background:#eaf8ef;border-color:#c9ead3;color:#176c43}
 
 .stats-header{font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:6px;justify-content:space-between}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;padding:12px 14px;cursor:pointer;transition:all .15s ease}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;padding:16px 14px;text-align:center;cursor:pointer;transition:all .15s ease}
 .stat:hover{border-color:var(--blue);transform:translateY(-1px);box-shadow:0 8px 25px #2457d615}
 .stat.active-filter{background:#e2ecfe;border-color:var(--blue);box-shadow:0 0 0 2px var(--blue)}
-.stat small{color:var(--muted);font-weight:700;font-size:10px;letter-spacing:.03em;pointer-events:none}
-.stat strong{display:block;font-size:22px;margin-top:4px;pointer-events:none}
+.stat small{display:block;color:var(--muted);font-weight:800;font-size:12px;letter-spacing:.05em;pointer-events:none}
+.stat strong{display:block;font-size:30px;margin-top:6px;pointer-events:none}
 
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 22px #1b2c4a08;overflow:hidden;margin-bottom:20px}.panelhead{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panelhead h3{margin:0;font-size:16px}.panelhead p{margin:4px 0 0;color:var(--muted);font-size:12px}.legend{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:11px;font-weight:800;border-radius:7px;padding:5px 8px;white-space:nowrap}
 .tablewrap{overflow:auto}table{border-collapse:separate;border-spacing:0;width:100%}th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 4px;text-align:center}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f8faff;cursor:pointer}
@@ -91,11 +91,12 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
   .none { background: #fff !important; color: #ccc !important; }
 }
 
-@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%;justify-content:space-between}}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.stat:last-child{grid-column:span 2}.title{font-size:21px}.toolbar{align-items:flex-start}.toolbar h2{font-size:16px}.left{width:100%}.right{width:100%;justify-content:space-between}}
 </style>
 </head>
 <body>
 <header>
+  <canvas id="hdrFx" aria-hidden="true"></canvas>
   <div class="head">
     <div>
       <div class="title">Turni H24</div>
@@ -154,10 +155,9 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 <div class="stats">
   <div class="stat" data-shift-filter="Mattina" id="statMattina"><small>MATTINA</small><strong id="nMorning">0</strong></div>
   <div class="stat" data-shift-filter="Pomeriggio" id="statPomeriggio"><small>POMERIGGIO</small><strong id="nAfternoon">0</strong></div>
-  <div class="stat" data-shift-filter="Notte" id="statNotte"><strong id="nNight">0</strong></div>
+  <div class="stat" data-shift-filter="Notte" id="statNotte"><small>NOTTE</small><strong id="nNight">0</strong></div>
   <div class="stat" data-shift-filter="Riposo" id="statRiposo"><small>RIPOSO</small><strong id="nRest">0</strong></div>
   <div class="stat" data-shift-filter="Ferie" id="statFerie"><small>FERIE</small><strong id="nFerie">0</strong></div>
-  <div class="stat" data-shift-filter="Malattia" id="statMalattia"><small>MALATTIA</small><strong id="nSick">0</strong></div>
 </div>
 
 <section class="panel">
@@ -178,7 +178,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
     </div>
   </div>
   <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
-  <div class="foot"><span>Seleziona una cella per cambiare il turno (solo admin). Il pallino azzurro indica lo Smartworking.</span><span id="status">Inizializzazione...</span></div>
+  <div class="foot"><span></span><span id="status">Inizializzazione...</span></div>
 </section>
 
 <!-- Pulsanti admin del mese (sotto la tabella) -->
@@ -486,7 +486,6 @@ function render(){
  $('nNight').textContent=dayCounts.Notte;
  $('nRest').textContent=dayCounts.Riposo;
  $('nFerie').textContent=dayCounts.Ferie;
- $('nSick').textContent=dayCounts.Malattia;
  
  document.querySelectorAll('.stat').forEach(el => {
    const f = el.getAttribute('data-shift-filter');
@@ -1253,5 +1252,61 @@ supabase.auth.onAuthStateChange((_event,s)=>{
 });
 
 await loadData();
+</script>
+<script>
+// Sfondo animato dell'intestazione: rete di nodi collegati con piccoli "pacchetti dati" in movimento
+(function(){
+  const cv=document.getElementById('hdrFx'); if(!cv) return;
+  const ctx=cv.getContext('2d'), hd=cv.parentElement;
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W=0,H=0,nodes=[],packets=[],raf=null,dpr=Math.min(window.devicePixelRatio||1,2);
+  const LINK=130;
+  function resize(){
+    W=hd.clientWidth; H=hd.clientHeight;
+    cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    const n=Math.max(14,Math.min(70,Math.round(W/22)));
+    nodes=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:1.2+Math.random()*1.6}));
+    packets=[];
+    if(reduce) draw();
+  }
+  function spawn(){
+    const a=nodes[Math.floor(Math.random()*nodes.length)];
+    const near=nodes.filter(b=>b!==a&&Math.hypot(a.x-b.x,a.y-b.y)<LINK);
+    if(!near.length) return;
+    packets.push({a,b:near[Math.floor(Math.random()*near.length)],t:0,sp:.012+Math.random()*.014});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<nodes.length;i++){
+      const a=nodes[i];
+      for(let j=i+1;j<nodes.length;j++){
+        const b=nodes[j], d=Math.hypot(a.x-b.x,a.y-b.y);
+        if(d<LINK){ctx.strokeStyle='rgba(96,165,250,'+(0.28*(1-d/LINK))+')';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+      }
+    }
+    for(const n of nodes){ctx.fillStyle='rgba(147,197,253,.75)';ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,6.283);ctx.fill();}
+    for(const p of packets){
+      const x=p.a.x+(p.b.x-p.a.x)*p.t, y=p.a.y+(p.b.y-p.a.y)*p.t;
+      ctx.fillStyle='rgba(34,211,238,.95)';ctx.shadowColor='#22d3ee';ctx.shadowBlur=8;
+      ctx.beginPath();ctx.arc(x,y,2.2,0,6.283);ctx.fill();ctx.shadowBlur=0;
+    }
+  }
+  function step(){
+    for(const n of nodes){
+      n.x+=n.vx;n.y+=n.vy;
+      if(n.x<0||n.x>W)n.vx*=-1; if(n.y<0||n.y>H)n.vy*=-1;
+    }
+    for(const p of packets)p.t+=p.sp;
+    packets=packets.filter(p=>p.t<1);
+    if(packets.length<6&&Math.random()<.08)spawn();
+    draw();
+    raf=requestAnimationFrame(step);
+  }
+  function start(){ if(!reduce&&!raf) raf=requestAnimationFrame(step); }
+  function stop(){ if(raf){cancelAnimationFrame(raf);raf=null;} }
+  document.addEventListener('visibilitychange',()=>document.hidden?stop():start());
+  if('ResizeObserver' in window) new ResizeObserver(resize).observe(hd); else window.addEventListener('resize',resize);
+  resize(); start();
+})();
 </script>
 </body></html>
