@@ -132,6 +132,15 @@ main.log-mode>#logView{display:block}
 .lg-body details{margin-top:6px}.lg-body summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:12px}
 .lg-sub{margin:6px 0 0;padding-left:16px;font-size:12px;color:var(--muted)}
 .lg-sub li{margin:2px 0}
+
+/* Conteggio operatori in turno (piè di tabella) */
+#roster tfoot td{background:#f8fafc;font-size:12px;font-weight:700;color:#475569;padding:5px 2px;border-bottom:1px solid var(--line)}
+#roster tfoot tr.cnt-first td{border-top:2px solid #cbd5e1}
+#roster tfoot td:first-child{position:sticky;left:0;z-index:1;background:#f8fafc;font-size:11px;font-weight:700;color:#64748b;text-align:left}
+#roster tfoot td.selected-day{background:#edf3ff!important}
+#roster tfoot td.cnt-one{color:#b45309;background:#fff8e1!important}
+#roster tfoot td.cnt-zero{color:#c62828;background:#ffebee!important;font-weight:800}
+.cnt-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
 </style>
 </head>
 <body>
@@ -219,7 +228,7 @@ main.log-mode>#logView{display:block}
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;"><span style="width:10px;height:10px;background:#0284c7;display:inline-block;border-radius:50%;"></span> Smartworking</span>
     </div>
   </div>
-  <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody></table></div>
+  <div class="tablewrap"><table id="roster"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
   <div class="foot"><span></span><span id="status">Inizializzazione...</span></div>
 </section>
 
@@ -675,6 +684,24 @@ function render(){
     </td>`
   }).join('')+'</tr>'}).join('');
  
+
+ // Conteggio operatori in turno per fascia, in fondo alla tabella (tutto il team, non solo chi è filtrato)
+ const footTypes=[['Mattina','#60a5fa'],['Pomeriggio','#34d399'],['Notte','#2b3648']];
+ const dayCnt=dates.map(d=>{
+   const dIso=iso(d), c={Mattina:0,Pomeriggio:0,Notte:0,Diurno:0};
+   displayPeople.forEach(p=>{ const sh=getShift(p.id,dIso); if(c[sh]!==undefined) c[sh]++; });
+   return {dIso,c};
+ });
+ if(dayCnt.some(x=>x.c.Diurno>0)) footTypes.push(['Diurno','#94a3b8']);
+ rosterTable.querySelector('tfoot').innerHTML=footTypes.map(([t,col],i)=>
+   `<tr class="cnt-row${i===0?' cnt-first':''}"><td><span class="cnt-dot" style="background:${col}"></span>In turno · ${t}</td>`+
+   dayCnt.map(x=>{
+     const n=x.c[t];
+     const lvl=(t==='Diurno')?'':(n===0?'cnt-zero':(n===1?'cnt-one':''));
+     return `<td data-date-col="${x.dIso}" class="${x.dIso===selectedDateIso?'selected-day':''} ${lvl}">${n}</td>`;
+   }).join('')+'</tr>'
+ ).join('');
+
  rosterTable.querySelectorAll('select').forEach(el=>el.addEventListener('change',async e=>{if(!admin())return;await setShift(e.target.dataset.person,e.target.dataset.date,e.target.value)}));
  
  rosterTable.querySelectorAll('.btn-del').forEach(el=>el.addEventListener('click',async e=>{
