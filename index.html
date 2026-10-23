@@ -142,6 +142,36 @@ main.log-mode>#logView{display:block}
 #roster tfoot td.cnt-one{color:#b45309;background:#fff8e1!important}
 #roster tfoot td.cnt-zero{color:#c62828;background:#ffebee!important;font-weight:800}
 .cnt-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+
+/* ===== Ferie e Permessi (pagina pubblica) ===== */
+#leaveView{display:none}
+main.leave-mode>*:not(#leaveView){display:none!important}
+main.leave-mode>#leaveView{display:block}
+.lv-legend{display:inline-flex;gap:12px;align-items:center;font-size:12px;font-weight:700;flex-wrap:wrap}
+.lv-chip{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:5px}
+.lv-table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+.lv-table th,.lv-table td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;padding:0}
+.lv-table th{background:#f8fafc;font-size:10px;padding:6px 2px;min-width:54px;color:var(--muted);line-height:1.3}
+.lv-table th b{font-size:13px;color:var(--text,#1b2c4a)}
+.lv-table th.lv-we,.lv-table td.lv-we{background:#f3f6fb}
+.lv-table th.lv-today{background:#dbeafe;color:#1e40af}
+.lv-table th:first-child,.lv-table td:first-child{position:sticky;left:0;z-index:2;background:#fff;min-width:130px;max-width:150px;text-align:left;padding:8px 10px;font-weight:700;border-right:2px solid var(--line)}
+.lv-table th:first-child{background:#f8fafc;font-size:12px}
+.lv-cell{height:52px;cursor:pointer;vertical-align:middle}
+.lv-cell:hover{outline:2px solid #93c5fd;outline-offset:-2px}
+.lv-off{background:repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 4px,#e8edf4 4px,#e8edf4 8px)}
+td.lv-ferie{background:#bbf7d0!important;color:#14532d}
+td.lv-perm{background:#bae6fd!important;color:#075985}
+.lv-lbl{font-weight:800;font-size:11px}
+.lv-ts{font-size:8.5px;line-height:1.25;opacity:.85;margin-top:2px}
+.lv-dlg-bg{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.lv-dlg{background:#fff;border-radius:16px;padding:22px;width:min(100%,400px);box-shadow:0 20px 60px #0004}
+.lv-dlg h3{margin:0 0 4px}.lv-dlg p{margin:0 0 14px;color:var(--muted);font-size:13px;text-transform:capitalize}
+.lv-dlg label{display:block;font-size:12px;font-weight:700;margin:0 0 14px}
+.lv-dlg label input{display:block;margin-top:5px;width:100%;box-sizing:border-box}
+.lv-btns{display:flex;gap:10px;margin-bottom:10px}
+.lv-btns .btn{flex:1;padding:12px 8px;font-weight:800}
+.lv-info{font-size:13px;margin:0 0 14px!important;text-transform:none!important;color:var(--text,#1b2c4a)!important}
 </style>
 </head>
 <body>
@@ -190,6 +220,7 @@ main.log-mode>#logView{display:block}
       <button id="weekTab">Settimana</button>
       <button id="monthTab" class="active">Mese</button>
     </div>
+    <button class="btn primary" id="leaveBtn">🏖️ Ferie e Permessi</button>
     <button class="btn primary hidden" id="statsBtn">📊 Statistiche</button>
     <button class="btn primary hidden" id="logBtn">📜 Storico modifiche</button>
     <button class="btn" id="csv">Esporta CSV</button>
@@ -464,6 +495,7 @@ main.log-mode>#logView{display:block}
         <option value="">📂 Cosa: tutto</option>
         <option value="shifts">Turni</option>
         <option value="smartworking_requests">Richieste smartworking</option>
+        <option value="leave_requests">Ferie e permessi</option>
         <option value="employees">Dipendenti</option>
       </select>
       <select id="lgEmp" class="field" style="padding:8px 10px;min-width:170px;"></select>
@@ -476,6 +508,33 @@ main.log-mode>#logView{display:block}
     <div style="text-align:center;margin-top:12px;"><button type="button" class="btn hidden" id="lgMore">Mostra altre modifiche</button></div>
     <p class="st-note" id="lgNote"></p>
   </section>
+</section>
+<!-- Pagina Ferie e Permessi (pubblica) -->
+<section id="leaveView">
+  <section class="panel" style="margin-bottom:20px;">
+    <div class="panelhead">
+      <div>
+        <h3>🏖️ Ferie e Permessi</h3>
+        <p>Clicca sul giorno di un operatore per inserire <b>Ferie</b> o <b>Permesso</b>. Sotto ogni richiesta trovi la data e l'ora di inserimento. Una volta inserite, solo l'amministratore può rimuoverle.</p>
+      </div>
+      <button type="button" class="btn" id="lvBack">← Torna ai turni</button>
+    </div>
+    <div class="st-controls">
+      <button type="button" class="btn" id="lvPrev">←</button>
+      <b id="lvTitle" style="min-width:140px;text-align:center;text-transform:capitalize;font-size:16px;">—</b>
+      <button type="button" class="btn" id="lvNext">→</button>
+      <button type="button" class="btn" id="lvToday">Oggi</button>
+      <span class="lv-legend">
+        <span><span class="lv-chip" style="background:#bbf7d0;border:1px solid #4ade80"></span>Ferie</span>
+        <span><span class="lv-chip" style="background:#bae6fd;border:1px solid #38bdf8"></span>Permesso</span>
+      </span>
+    </div>
+    <div id="lvSetup"></div>
+    <div class="tablewrap" style="margin-top:14px;"><table class="lv-table" id="lvTable"></table></div>
+    <p class="st-note" id="lvMsg"></p>
+  </section>
+
+  <div id="lvDlgBg" class="lv-dlg-bg hidden"><div class="lv-dlg" id="lvDlg"></div></div>
 </section>
 </main>
 
@@ -509,13 +568,13 @@ function updateAuthUI(showLoginForm = false){
     $('loginOpen').classList.add('hidden');$('topLoginForm').classList.add('hidden');
     $('loggedInHeader').classList.remove('hidden');$('adminPanel').classList.remove('hidden');
     $('swAdminPanel').classList.remove('hidden');$('swPanel').classList.add('hidden');
-    $('historyPanel').classList.remove('hidden');$('adminActionButtons').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('logBtn').classList.remove('hidden');
+    $('historyPanel').classList.remove('hidden');$('adminActionButtons').classList.remove('hidden');$('statsBtn').classList.remove('hidden');$('logBtn').classList.remove('hidden');refreshLeaveIfOpen();
     updateHistoryDropdown();
     updateSwAdminDropdown();
   } else {
     $('loggedInHeader').classList.add('hidden');$('adminPanel').classList.add('hidden');
     $('swAdminPanel').classList.add('hidden');$('swPanel').classList.remove('hidden');
-    $('historyPanel').classList.add('hidden');$('adminActionButtons').classList.add('hidden');$('statsBtn').classList.add('hidden');$('logBtn').classList.add('hidden');closeStats();closeLog();
+    $('historyPanel').classList.add('hidden');$('adminActionButtons').classList.add('hidden');$('statsBtn').classList.add('hidden');$('logBtn').classList.add('hidden');closeStats();closeLog();refreshLeaveIfOpen();
     if(showLoginForm){
       $('loginOpen').classList.add('hidden');
       $('topLoginForm').classList.remove('hidden');$('email').focus();
@@ -1493,7 +1552,7 @@ function stFillYears(){
 
 function openStats(){
   if(!admin()) return;
-  document.querySelector('main').classList.remove('log-mode');
+  document.querySelector('main').classList.remove('log-mode','leave-mode');
   document.querySelector('main').classList.add('stats-mode');
   initStatsOnce();
   stFillYears();
@@ -1713,7 +1772,7 @@ $('statsBtn').onclick = openStats;
 // ================= STORICO MODIFICHE (solo admin) =================
 var logInitDone = false, logGroups = [], logShown = 0, lgToken = 0;
 const LG_PAGE = 120, LG_MAX = 5000;
-const LG_TABLES = {shifts:'turni', smartworking_requests:'richieste smartworking', employees:'dipendenti'};
+const LG_TABLES = {shifts:'turni', smartworking_requests:'richieste smartworking', leave_requests:'ferie e permessi', employees:'dipendenti'};
 const LG_ACTION = {INSERT:'Inserimento', UPDATE:'Modifica', DELETE:'Rimozione'};
 const lgDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}) : '';
 const lgTime = t => new Date(t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
@@ -1809,6 +1868,11 @@ function lgSentence(r){
     if(r.action === 'DELETE') return `ha rimosso la richiesta di smartworking di ${n} del ${d} (turno ${o})`;
     return `ha modificato la richiesta di smartworking di ${n} del ${d}: ${o} → ${nw}`;
   }
+  if(r.table_name === 'leave_requests'){
+    if(r.action === 'INSERT') return `ha inserito ${nw} per ${n} il ${d}`;
+    if(r.action === 'DELETE') return `ha rimosso ${o} di ${n} del ${d}`;
+    return `ha modificato la richiesta di ${n} del ${d}: ${o} → ${nw}`;
+  }
   if(r.action === 'INSERT') return `ha aggiunto il dipendente ${n}: ${nw}`;
   if(r.action === 'DELETE') return `ha eliminato il dipendente ${n}`;
   return `ha modificato il dipendente ${n}: ${o} → ${nw}`;
@@ -1888,7 +1952,7 @@ function initLogOnce(){
 function openLog(){
   if(!admin()) return;
   const m = document.querySelector('main');
-  m.classList.remove('stats-mode'); m.classList.add('log-mode');
+  m.classList.remove('stats-mode','leave-mode'); m.classList.add('log-mode');
   initLogOnce(); lgFillEmployees(); renderLog();
   window.scrollTo(0,0);
 }
@@ -1947,6 +2011,218 @@ async function renderLog(){
 }
 
 $('logBtn').onclick = openLog;
+
+// ================= FERIE E PERMESSI (pagina pubblica) =================
+var lvMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12);
+var lvRows = [], lvInitDone = false, lvPending = null, lvToken = 0;
+const lvDateLong = d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+const lvStampDate = t => new Date(t).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'});
+const lvStampTime = t => new Date(t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+
+const LV_SQL = `create table public.leave_requests (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  leave_date date not null,
+  leave_type text not null check (leave_type in ('Ferie','Permesso')),
+  created_at timestamptz not null default now(),
+  unique (employee_id, leave_date)
+);
+alter table public.leave_requests enable row level security;
+create policy "ferie lettura tutti" on public.leave_requests for select to anon, authenticated using (true);
+create policy "ferie inserimento tutti" on public.leave_requests for insert to anon, authenticated with check (true);
+create policy "ferie rimozione admin" on public.leave_requests for delete to authenticated using (true);
+
+-- l'orario di inserimento lo decide sempre il database
+create or replace function public.leave_force_ts() returns trigger language plpgsql as $$
+begin new.created_at := now(); return new; end $$;
+create trigger leave_ts before insert on public.leave_requests
+  for each row execute function public.leave_force_ts();
+
+-- aggiorna lo storico modifiche perché registri anche ferie e permessi
+create or replace function public.log_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  o jsonb := case when TG_OP <> 'INSERT' then to_jsonb(OLD) end;
+  n jsonb := case when TG_OP <> 'DELETE' then to_jsonb(NEW) end;
+  r jsonb := coalesce(n, o);
+  v_emp uuid; v_name text; v_date date; v_old text; v_new text;
+  v_jwt jsonb := auth.jwt();
+begin
+  if TG_TABLE_NAME = 'employees' then
+    v_emp := (r->>'id')::uuid;
+    v_name := r->>'name';
+    if o is not null then
+      v_old := format('%s · %s · inizio %s · ultimo giorno %s', o->>'name',
+        case when (o->>'active')::boolean then 'attivo' else 'cessato' end,
+        coalesce(o->>'start_date','-'), coalesce(o->>'last_day','-'));
+    end if;
+    if n is not null then
+      v_new := format('%s · %s · inizio %s · ultimo giorno %s', n->>'name',
+        case when (n->>'active')::boolean then 'attivo' else 'cessato' end,
+        coalesce(n->>'start_date','-'), coalesce(n->>'last_day','-'));
+    end if;
+  else
+    v_emp := (r->>'employee_id')::uuid;
+    v_date := coalesce(r->>'shift_date', r->>'request_date', r->>'leave_date')::date;
+    v_old := coalesce(o->>'shift_type', o->>'leave_type');
+    v_new := coalesce(n->>'shift_type', n->>'leave_type');
+  end if;
+
+  if TG_OP = 'UPDATE' and v_old is not distinct from v_new
+     and (o->>'shift_date') is not distinct from (n->>'shift_date')
+     and (o->>'request_date') is not distinct from (n->>'request_date')
+     and (o->>'leave_date') is not distinct from (n->>'leave_date')
+     and (o->>'employee_id') is not distinct from (n->>'employee_id') then
+    return null;
+  end if;
+
+  if v_name is null and v_emp is not null then
+    select name into v_name from public.employees where id = v_emp;
+  end if;
+
+  insert into public.audit_log (table_name, action, employee_id, employee_name, record_date, old_value, new_value, actor_role, actor_email)
+  values (TG_TABLE_NAME, TG_OP, v_emp, coalesce(v_name, '(operatore eliminato)'), v_date, v_old, v_new,
+          coalesce(v_jwt->>'role', 'database'), v_jwt->>'email');
+  return null;
+end $$;
+
+create trigger audit_leave after insert or update or delete on public.leave_requests
+  for each row execute function public.log_change();`;
+
+function lvInLeave(){ return document.querySelector('main').classList.contains('leave-mode'); }
+function refreshLeaveIfOpen(){ if(lvInLeave()) renderLeave(); }
+function openLeave(){
+  const m = document.querySelector('main');
+  m.classList.remove('stats-mode','log-mode'); m.classList.add('leave-mode');
+  initLeaveOnce(); renderLeave();
+  window.scrollTo(0,0);
+}
+function closeLeave(){
+  const m = document.querySelector('main');
+  if(m) m.classList.remove('leave-mode');
+  $('lvDlgBg').classList.add('hidden');
+}
+function lvAllPeople(){
+  const seen = new Set();
+  return [...people, ...archivedPeople].filter(p => !seen.has(p.id) && seen.add(p.id));
+}
+
+function initLeaveOnce(){
+  if(lvInitDone) return;
+  lvInitDone = true;
+  $('lvBack').onclick = closeLeave;
+  $('lvPrev').onclick = () => { lvMonth = new Date(lvMonth.getFullYear(), lvMonth.getMonth()-1, 1, 12); renderLeave(); };
+  $('lvNext').onclick = () => { lvMonth = new Date(lvMonth.getFullYear(), lvMonth.getMonth()+1, 1, 12); renderLeave(); };
+  $('lvToday').onclick = () => { const n = new Date(); lvMonth = new Date(n.getFullYear(), n.getMonth(), 1, 12); renderLeave(); };
+  $('lvTable').addEventListener('click', e => {
+    const td = e.target.closest('td.lv-cell');
+    if(!td) return;
+    const rec = lvRows.find(r => r.employee_id === td.dataset.emp && r.leave_date === td.dataset.date) || null;
+    lvOpenDialog(td.dataset.emp, td.dataset.date, rec);
+  });
+  $('lvDlgBg').addEventListener('click', e => {
+    if(e.target === $('lvDlgBg') || e.target.closest('[data-lv-cancel]')){ $('lvDlgBg').classList.add('hidden'); return; }
+    const t = e.target.closest('[data-lv-type]');
+    if(t) lvAdd(t.dataset.lvType);
+    if(e.target.closest('[data-lv-del]')) lvRemove();
+  });
+}
+
+function lvOpenDialog(emp, date, rec){
+  const p = lvAllPeople().find(x => x.id === emp);
+  lvPending = {emp, date, rec};
+  let body;
+  if(rec){
+    const info = `<b>${escapeHtml(rec.leave_type)}</b> inserito il ${lvStampDate(rec.created_at)} alle ${lvStampTime(rec.created_at)}.`;
+    body = admin()
+      ? `<p class="lv-info">${info}</p><div class="lv-btns"><button class="btn danger" data-lv-del>🗑️ Rimuovi</button><button class="btn" data-lv-cancel>Chiudi</button></div>`
+      : `<p class="lv-info">${info}<br>Per rimuoverlo rivolgiti all'amministratore.</p><div class="lv-btns"><button class="btn" data-lv-cancel>Chiudi</button></div>`;
+  } else {
+    body = `<label>Fino al (facoltativo, per più giorni di seguito)<input type="date" id="lvUntil" class="field" min="${date}"></label>
+      <div class="lv-btns"><button class="btn" style="background:#bbf7d0;border-color:#4ade80;color:#14532d" data-lv-type="Ferie">🌴 Ferie</button>
+      <button class="btn" style="background:#bae6fd;border-color:#38bdf8;color:#075985" data-lv-type="Permesso">🕒 Permesso</button></div>
+      <button class="btn" style="width:100%" data-lv-cancel>Annulla</button>`;
+  }
+  $('lvDlg').innerHTML = `<h3>${escapeHtml(p ? p.name : '')}</h3><p>${lvDateLong(date)}</p>${body}`;
+  $('lvDlgBg').classList.remove('hidden');
+}
+
+async function lvAdd(type){
+  if(!lvPending) return;
+  const {emp, date} = lvPending;
+  const until = $('lvUntil') ? $('lvUntil').value : '';
+  const end = (until && until > date) ? until : date;
+  const p = lvAllPeople().find(x => x.id === emp);
+  $('lvDlgBg').classList.add('hidden');
+  $('lvMsg').textContent = 'Salvataggio in corso...';
+  const { data: ex } = await supabase.from('leave_requests').select('leave_date').eq('employee_id', emp).gte('leave_date', date).lte('leave_date', end);
+  const have = new Set((ex || []).map(r => r.leave_date));
+  const rows = stDays(date, end).slice(0, 93)
+    .filter(d => p && stInService(p, d) && !have.has(d))
+    .map(d => ({employee_id: emp, leave_date: d, leave_type: type}));
+  if(!rows.length){ $('lvMsg').textContent = 'Nessun giorno da inserire: sono già presenti o fuori dal periodo di servizio.'; return; }
+  const { error } = await supabase.from('leave_requests').insert(rows);
+  if(error){ $('lvMsg').textContent = 'Errore: ' + (error.message || 'inserimento non riuscito'); return; }
+  $('lvMsg').textContent = rows.length === 1 ? `${type} inserito ✓` : `${type} inserito su ${rows.length} giorni ✓`;
+  renderLeave(true);
+}
+
+async function lvRemove(){
+  if(!lvPending || !lvPending.rec) return;
+  if(!admin()){ $('lvMsg').textContent = 'Solo l\'amministratore può rimuovere ferie e permessi.'; $('lvDlgBg').classList.add('hidden'); return; }
+  $('lvDlgBg').classList.add('hidden');
+  const { data, error } = await supabase.from('leave_requests').delete().eq('id', lvPending.rec.id).select();
+  if(error || !data || !data.length){ $('lvMsg').textContent = 'Non è stato possibile rimuovere: ' + (error ? error.message : 'accesso amministratore non valido.'); return; }
+  $('lvMsg').textContent = 'Rimosso ✓';
+  renderLeave(true);
+}
+
+async function renderLeave(keepMsg){
+  const y = lvMonth.getFullYear(), mo = lvMonth.getMonth(), nd = new Date(y, mo+1, 0).getDate();
+  const from = `${y}-${pad(mo+1)}-01`, to = `${y}-${pad(mo+1)}-${pad(nd)}`;
+  $('lvTitle').textContent = lvMonth.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+  if(keepMsg !== true) $('lvMsg').textContent = admin()
+    ? 'Sei amministratore: cliccando su una richiesta già inserita puoi rimuoverla.'
+    : 'Una volta inserite, le richieste possono essere rimosse solo dall\'amministratore.';
+  const token = ++lvToken;
+  const { data, error } = await supabase.from('leave_requests').select('id,employee_id,leave_date,leave_type,created_at').gte('leave_date', from).lte('leave_date', to);
+  if(token !== lvToken) return;
+  if(error){
+    lvRows = [];
+    $('lvSetup').innerHTML = (/leave_requests|does not exist|schema cache/i.test(error.message || '') && admin())
+      ? `<div class="st-setup"><b>Per attivare Ferie e Permessi serve creare una tabella su Supabase</b> (una volta sola).<br>Apri Supabase → SQL Editor → incolla questo codice → Run. Poi ricarica la pagina.<pre>${LV_SQL}</pre></div>`
+      : `<div class="st-setup">Questa funzione non è ancora attiva${admin() ? ': ' + escapeHtml(error.message || '') : '. Avvisa l\'amministratore.'}</div>`;
+  } else {
+    lvRows = data || [];
+    $('lvSetup').innerHTML = '';
+  }
+  const map = new Map(lvRows.map(r => [r.employee_id + '|' + r.leave_date, r]));
+  const ppl = lvAllPeople()
+    .filter(p => (!p.start_date || p.start_date <= to) && (!p.last_day || p.last_day >= from))
+    .sort((a,b) => a.name.localeCompare(b.name,'it'));
+  const todayIso = iso(new Date());
+  const days = [];
+  for(let d = 1; d <= nd; d++){
+    const dIso = `${y}-${pad(mo+1)}-${pad(d)}`;
+    days.push({dIso, d, dow: new Date(dIso + 'T12:00:00').getDay()});
+  }
+  const wd = ['dom','lun','mar','mer','gio','ven','sab'];
+  const head = '<thead><tr><th>Operatore</th>' + days.map(x =>
+    `<th class="${(x.dow===0||x.dow===6)?'lv-we':''} ${x.dIso===todayIso?'lv-today':''}">${wd[x.dow]}<br><b>${x.d}</b></th>`).join('') + '</tr></thead>';
+  const body = ppl.map(p => '<tr><td>' + escapeHtml(p.name) + '</td>' + days.map(x => {
+    if(!stInService(p, x.dIso)) return '<td class="lv-off"></td>';
+    const rec = map.get(p.id + '|' + x.dIso);
+    const we = (x.dow===0||x.dow===6) ? 'lv-we' : '';
+    if(rec){
+      const cls = rec.leave_type === 'Ferie' ? 'lv-ferie' : 'lv-perm';
+      return `<td class="lv-cell ${cls}" data-emp="${p.id}" data-date="${x.dIso}"><div class="lv-lbl">${escapeHtml(rec.leave_type)}</div><div class="lv-ts">${lvStampDate(rec.created_at)}<br>${lvStampTime(rec.created_at)}</div></td>`;
+    }
+    return `<td class="lv-cell ${we}" data-emp="${p.id}" data-date="${x.dIso}"></td>`;
+  }).join('') + '</tr>').join('');
+  $('lvTable').innerHTML = head + '<tbody>' + (body || '<tr><td>Nessun operatore in servizio in questo mese.</td></tr>') + '</tbody>';
+}
+
+$('leaveBtn').onclick = openLeave;
 </script>
 <script>
 // Sfondo animato dell'intestazione: rete di nodi collegati con piccoli "pacchetti dati" in movimento
