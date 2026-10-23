@@ -160,8 +160,18 @@ main.leave-mode>#leaveView{display:block}
 .lv-cell{height:52px;cursor:pointer;vertical-align:middle}
 .lv-cell:hover{outline:2px solid #93c5fd;outline-offset:-2px}
 .lv-off{background:repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 4px,#e8edf4 4px,#e8edf4 8px)}
-td.lv-ferie{background:#bbf7d0!important;color:#14532d}
-td.lv-perm{background:#bae6fd!important;color:#075985}
+td.lv-f1{background:#bbf7d0!important;color:#14532d}
+td.lv-f2{background:#d9f99d!important;color:#3f6212}
+td.lv-f3{background:#fef08a!important;color:#854d0e}
+td.lv-f4{background:#facc15!important;color:#713f12}
+td.lv-p1{background:#bae6fd!important;color:#075985}
+td.lv-p2{background:#7dd3fc!important;color:#075985}
+td.lv-p3{background:#2563eb!important;color:#fff}
+.lv-foot td{height:30px;font-size:12px;font-weight:800;background:#f8fafc}
+.lv-foot td:first-child{font-size:11px;color:var(--muted)}
+.lv-foot-first td{border-top:2px solid #cbd5e1}
+.lv-foot td.lv-zero{color:#cbd5e1;font-weight:600}
+.lv-sw{display:inline-block;width:13px;height:13px;border-radius:3px;margin-left:3px;vertical-align:-2px}
 .lv-lbl{font-weight:800;font-size:11px}
 .lv-ts{font-size:8.5px;line-height:1.25;opacity:.85;margin-top:2px}
 .lv-dlg-bg{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
@@ -465,6 +475,26 @@ td.lv-perm{background:#bae6fd!important;color:#075985}
     <div class="tablewrap"><table class="st-table" id="stVacTable"></table></div>
     <p class="st-note" id="stVacMsg">Ore ferie godute = giorni di ferie nei turni dell'anno × ore per giorno. Residuo = monte ore − ore godute.</p>
   </section>
+  <section class="panel" style="margin-bottom:20px;">
+    <div class="panelhead">
+      <div>
+        <h3>📅 Ferie e permessi programmati</h3>
+        <p>Richieste già inserite nella pagina Ferie e Permessi, da oggi in avanti, per mese.</p>
+      </div>
+      <label style="font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">Periodo
+        <select id="stUpN" class="field" style="padding:7px 10px;">
+          <option value="3">Prossimi 3 mesi</option>
+          <option value="6" selected>Prossimi 6 mesi</option>
+          <option value="12">Prossimi 12 mesi</option>
+        </select></label>
+    </div>
+    <div id="stUpMsg"></div>
+    <div class="st-chart" style="height:260px;"><canvas id="stUpChart"></canvas></div>
+    <div class="tablewrap"><table class="st-table" id="stUpTable"></table></div>
+    <div class="tablewrap"><table class="st-table" id="stUpEmp"></table></div>
+    <p class="st-note">"Picco" = massimo numero di persone assenti (ferie + permessi) nello stesso giorno del mese. Le giornate sono giorni di calendario. Le richieste sono separate dai turni inseriti.</p>
+  </section>
+
 </section>
 <!-- Vista Storico modifiche (solo amministratore) -->
 <section id="logView">
@@ -525,8 +555,9 @@ td.lv-perm{background:#bae6fd!important;color:#075985}
       <button type="button" class="btn" id="lvNext">→</button>
       <button type="button" class="btn" id="lvToday">Oggi</button>
       <span class="lv-legend">
-        <span><span class="lv-chip" style="background:#bbf7d0;border:1px solid #4ade80"></span>Ferie</span>
-        <span><span class="lv-chip" style="background:#bae6fd;border:1px solid #38bdf8"></span>Permesso</span>
+        <span>Ferie: <i class="lv-sw" style="background:#bbf7d0"></i><i class="lv-sw" style="background:#d9f99d"></i><i class="lv-sw" style="background:#fef08a"></i><i class="lv-sw" style="background:#facc15"></i></span>
+        <span>Permesso: <i class="lv-sw" style="background:#bae6fd"></i><i class="lv-sw" style="background:#7dd3fc"></i><i class="lv-sw" style="background:#2563eb"></i></span>
+        <span style="font-weight:600;color:var(--muted)">Il colore si intensifica con il numero di persone nello stesso giorno (1ª, 2ª, 3ª, 4ª+ richiesta).</span>
       </span>
     </div>
     <div id="lvSetup"></div>
@@ -1599,6 +1630,7 @@ function initStatsOnce(){
     renderStats();
   };
   $('stVacYear').onchange = renderVacation;
+  $('stUpN').onchange = renderUpcomingLeave;
   $('stVacTable').addEventListener('change', stVacChanged);
 }
 
@@ -1685,6 +1717,7 @@ function renderStats(){
   ].map(([t,v]) => `<div class="st-kpi"><small>${t}</small><strong>${v}</strong></div>`).join('');
 
   renderVacation();
+  renderUpcomingLeave();
 }
 
 // ---------- Ferie e residuo ore (dati salvati in Supabase, tabella vacation_balances, visibile solo da loggato)
@@ -1753,6 +1786,71 @@ async function stVacChanged(e){
     {employee_id:id, year, hours_total:total, hours_per_day:perDay, updated_at:new Date().toISOString()},
     {onConflict:'employee_id,year'});
   $('stVacMsg').textContent = error ? 'Errore di salvataggio: ' + error.message : 'Salvato ✓';
+}
+
+
+// ---------- Ferie e permessi programmati (da oggi in avanti)
+var stUpToken = 0;
+async function renderUpcomingLeave(){
+  if(!admin()) return;
+  const n = parseInt($('stUpN').value, 10) || 6, token = ++stUpToken;
+  const now = new Date(), from = iso(now), to = iso(new Date(now.getFullYear(), now.getMonth() + n, 0, 12));
+  let all = [], off = 0, err = null;
+  while(true){
+    const { data, error } = await supabase.from('leave_requests').select('id,employee_id,leave_date,leave_type')
+      .gte('leave_date', from).lte('leave_date', to).order('leave_date').order('id').range(off, off + 999);
+    if(error){ err = error; break; }
+    all = all.concat(data || []);
+    if(!data || data.length < 1000) break;
+    off += 1000;
+  }
+  if(token !== stUpToken) return;
+  if(err){
+    $('stUpMsg').innerHTML = '<div class="st-setup">Impossibile leggere le richieste di ferie e permessi' + (/leave_requests|does not exist|schema cache/i.test(err.message || '') ? ': la tabella non è ancora attiva (apri la pagina Ferie e Permessi per le istruzioni).' : ': ' + escapeHtml(err.message || '')) + '</div>';
+    $('stUpTable').innerHTML = ''; $('stUpEmp').innerHTML = '';
+    if(statsCharts.up){ statsCharts.up.destroy(); statsCharts.up = null; }
+    return;
+  }
+  $('stUpMsg').innerHTML = '';
+  const ppl = stPeople(), byId = new Map(ppl.map(p => [p.id, p]));
+  const rows = all.filter(r => byId.has(r.employee_id));
+  const months = [];
+  for(let i = 0; i < n; i++){
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1, 12);
+    months.push({key: `${d.getFullYear()}-${pad(d.getMonth()+1)}`, label: d.toLocaleDateString('it-IT',{month:'short',year:'2-digit'}), ferie:0, perm:0, people:new Set(), days:{}});
+  }
+  const mIdx = new Map(months.map(m => [m.key, m]));
+  const emp = new Map();
+  rows.forEach(r => {
+    const m = mIdx.get(r.leave_date.slice(0,7));
+    if(!m) return;
+    if(r.leave_type === 'Ferie') m.ferie++; else m.perm++;
+    m.people.add(r.employee_id);
+    m.days[r.leave_date] = (m.days[r.leave_date] || 0) + 1;
+    const e = emp.get(r.employee_id) || {ferie:0, perm:0};
+    if(r.leave_type === 'Ferie') e.ferie++; else e.perm++;
+    emp.set(r.employee_id, e);
+  });
+  stMakeChart('up','stUpChart',{
+    type:'bar',
+    data:{labels: months.map(m => m.label), datasets:[
+      {label:'Giorni di ferie', data:months.map(m => m.ferie), backgroundColor:'#4ade80', borderRadius:4},
+      {label:'Giorni di permesso', data:months.map(m => m.perm), backgroundColor:'#38bdf8', borderRadius:4}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}},
+      scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true, ticks:{precision:0}}}}
+  });
+  $('stUpTable').innerHTML = '<thead><tr><th>Mese</th><th>Giorni di ferie</th><th>Giorni di permesso</th><th>Persone coinvolte</th><th>Picco contemporanei</th></tr></thead><tbody>' +
+    months.map(m => {
+      let peak = 0, peakDay = '';
+      Object.keys(m.days).sort().forEach(d => { if(m.days[d] > peak){ peak = m.days[d]; peakDay = d; } });
+      return `<tr><td style="text-transform:capitalize">${m.label}</td><td>${m.ferie}</td><td>${m.perm}</td><td>${m.people.size}</td><td>${peak ? peak + ' il ' + stFmt(peakDay).slice(0,5) : '—'}</td></tr>`;
+    }).join('') + '</tbody>';
+  const list = [...emp.entries()].map(([id,v]) => ({name: byId.get(id).name, ...v})).sort((a,b) => a.name.localeCompare(b.name,'it'));
+  $('stUpEmp').innerHTML = list.length
+    ? '<thead><tr><th>Operatore</th><th>Ferie programmate (gg)</th><th>Permessi programmati (gg)</th></tr></thead><tbody>' +
+      list.map(e => `<tr><td>${escapeHtml(e.name)}</td><td>${e.ferie}</td><td>${e.perm}</td></tr>`).join('') + '</tbody>'
+    : '<tbody><tr><td>Nessuna richiesta programmata nel periodo.</td></tr></tbody>';
 }
 
 function stExportCsv(){
@@ -2138,7 +2236,10 @@ function lvOpenDialog(emp, date, rec){
       ? `<p class="lv-info">${info}</p><div class="lv-btns"><button class="btn danger" data-lv-del>🗑️ Rimuovi</button><button class="btn" data-lv-cancel>Chiudi</button></div>`
       : `<p class="lv-info">${info}<br>Per rimuoverlo rivolgiti all'amministratore.</p><div class="lv-btns"><button class="btn" data-lv-cancel>Chiudi</button></div>`;
   } else {
-    body = `<label>Fino al (facoltativo, per più giorni di seguito)<input type="date" id="lvUntil" class="field" min="${date}"></label>
+    const nF = lvRows.filter(r => r.leave_date === date && r.leave_type === 'Ferie').length;
+    const nP = lvRows.filter(r => r.leave_date === date && r.leave_type === 'Permesso').length;
+    const warn = (nF + nP) ? `<p class="lv-info" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:8px 10px;">In questo giorno risultano già <b>${nF}</b> in ferie e <b>${nP}</b> in permesso.</p>` : '';
+    body = warn + `<label>Fino al (facoltativo, per più giorni di seguito)<input type="date" id="lvUntil" class="field" min="${date}"></label>
       <div class="lv-btns"><button class="btn" style="background:#bbf7d0;border-color:#4ade80;color:#14532d" data-lv-type="Ferie">🌴 Ferie</button>
       <button class="btn" style="background:#bae6fd;border-color:#38bdf8;color:#075985" data-lv-type="Permesso">🕒 Permesso</button></div>
       <button class="btn" style="width:100%" data-lv-cancel>Annulla</button>`;
@@ -2197,6 +2298,12 @@ async function renderLeave(keepMsg){
     $('lvSetup').innerHTML = '';
   }
   const map = new Map(lvRows.map(r => [r.employee_id + '|' + r.leave_date, r]));
+  // posizione di ogni richiesta nel suo giorno (1ª, 2ª, 3ª...) in base all'ordine di inserimento, separatamente per Ferie e Permesso
+  const rank = new Map(), seq = {}, cnt = {};
+  lvRows.slice().sort((a,b) => a.created_at < b.created_at ? -1 : (a.created_at > b.created_at ? 1 : (a.id < b.id ? -1 : 1))).forEach(r => {
+    const k = r.leave_date + '|' + r.leave_type;
+    seq[k] = (seq[k] || 0) + 1; cnt[k] = seq[k]; rank.set(r.id, seq[k]);
+  });
   const ppl = lvAllPeople()
     .filter(p => (!p.start_date || p.start_date <= to) && (!p.last_day || p.last_day >= from))
     .sort((a,b) => a.name.localeCompare(b.name,'it'));
@@ -2214,12 +2321,18 @@ async function renderLeave(keepMsg){
     const rec = map.get(p.id + '|' + x.dIso);
     const we = (x.dow===0||x.dow===6) ? 'lv-we' : '';
     if(rec){
-      const cls = rec.leave_type === 'Ferie' ? 'lv-ferie' : 'lv-perm';
-      return `<td class="lv-cell ${cls}" data-emp="${p.id}" data-date="${x.dIso}"><div class="lv-lbl">${escapeHtml(rec.leave_type)}</div><div class="lv-ts">${lvStampDate(rec.created_at)}<br>${lvStampTime(rec.created_at)}</div></td>`;
+      const pos = rank.get(rec.id) || 1;
+      const cls = rec.leave_type === 'Ferie' ? 'lv-f' + Math.min(pos,4) : 'lv-p' + Math.min(pos,3);
+      return `<td class="lv-cell ${cls}" data-emp="${p.id}" data-date="${x.dIso}" title="${escapeHtml(rec.leave_type)} · ${pos}ª richiesta per questo giorno"><div class="lv-lbl">${escapeHtml(rec.leave_type)}</div><div class="lv-ts">${lvStampDate(rec.created_at)}<br>${lvStampTime(rec.created_at)}</div></td>`;
     }
     return `<td class="lv-cell ${we}" data-emp="${p.id}" data-date="${x.dIso}"></td>`;
   }).join('') + '</tr>').join('');
-  $('lvTable').innerHTML = head + '<tbody>' + (body || '<tr><td>Nessun operatore in servizio in questo mese.</td></tr>') + '</tbody>';
+  const foot = [['Ferie','In ferie','f',4],['Permesso','In permesso','p',3]].map(([t,label,pre,max],i) =>
+    `<tr class="lv-foot${i===0?' lv-foot-first':''}"><td>${label}</td>` + days.map(x => {
+      const n = cnt[x.dIso + '|' + t] || 0;
+      return n ? `<td class="lv-${pre}${Math.min(n,max)}">${n}</td>` : '<td class="lv-zero">·</td>';
+    }).join('') + '</tr>').join('');
+  $('lvTable').innerHTML = head + '<tbody>' + (body || '<tr><td>Nessun operatore in servizio in questo mese.</td></tr>') + '</tbody><tfoot>' + foot + '</tfoot>';
 }
 
 $('leaveBtn').onclick = openLeave;
