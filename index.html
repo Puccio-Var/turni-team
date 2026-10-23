@@ -74,7 +74,7 @@ table.month-view th:first-child, table.month-view td:first-child { min-width: 15
 
 @media print {
   body { background: #fff; color: #000; font-size: 10px; }
-  header, .toolbar, .banner, .stats-header, .stats, .panelhead p, .foot, .admin, .btn-del, #authContainer, #swPanel, #swAdminPanel { display: none !important; }
+  header, .toolbar, .actionbar, #adminActionButtons, .banner, .stats-header, .stats, .panelhead p, .foot, .admin, .btn-del, #authContainer, #swPanel, #swAdminPanel { display: none !important; }
   main { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
   .panel { border: 0; box-shadow: none; }
   .panelhead { padding: 0 0 10px 0; border: 0; }
@@ -183,6 +183,15 @@ td.lv-p3{background:#2563eb!important;color:#fff}
 .lv-btns{display:flex;gap:10px;margin-bottom:10px}
 .lv-btns .btn{flex:1;padding:12px 8px;font-weight:800}
 .lv-info{font-size:13px;margin:0 0 14px!important;text-transform:none!important;color:var(--text,#1b2c4a)!important}
+
+/* Barra azioni: pagine a sinistra, strumenti a tendina a destra */
+.actionbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.actionbar .pages{display:flex;gap:8px;flex-wrap:wrap}
+.menu{position:relative}
+.menu-list{position:absolute;right:0;top:calc(100% + 6px);min-width:210px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px #1b2c4a22;padding:6px;z-index:50;display:flex;flex-direction:column;gap:2px}
+.menu-item{background:transparent;border:0;text-align:left;padding:10px 12px;border-radius:8px;font-weight:700;font-size:14px;font-family:inherit;color:var(--ink);cursor:pointer;width:100%}
+.menu-item:hover,.menu-item:focus-visible{background:#eef3fc;outline:none}
+@media(max-width:700px){.actionbar .pages .btn{flex:1 1 auto}}
 </style>
 </head>
 <body>
@@ -231,12 +240,22 @@ td.lv-p3{background:#2563eb!important;color:#fff}
       <button id="weekTab">Settimana</button>
       <button id="monthTab" class="active">Mese</button>
     </div>
+  </div>
+</div>
+
+<div class="actionbar">
+  <div class="pages">
     <button class="btn primary" id="leaveBtn">🏖️ Ferie e Permessi</button>
     <button class="btn primary hidden" id="statsBtn">📊 Statistiche</button>
     <button class="btn primary hidden" id="logBtn">📜 Storico modifiche</button>
-    <button class="btn hidden" id="backupBtn">💾 Backup completo</button>
-    <button class="btn" id="csv">Esporta CSV</button>
-    <button class="btn primary" id="printBtn">🖨️ Stampa / PDF</button>
+  </div>
+  <div class="menu" id="toolsMenu">
+    <button type="button" class="btn" id="toolsBtn" aria-haspopup="true" aria-expanded="false">🧰 Strumenti ▾</button>
+    <div class="menu-list hidden" id="toolsList" role="menu">
+      <button type="button" class="menu-item" id="printBtn" role="menuitem">🖨️ Stampa / PDF</button>
+      <button type="button" class="menu-item" id="csv" role="menuitem">📄 Esporta CSV</button>
+      <button type="button" class="menu-item hidden" id="backupBtn" role="menuitem">💾 Backup completo</button>
+    </div>
   </div>
 </div>
 
@@ -1241,6 +1260,17 @@ $('resetFilterBtn').onclick = () => {
 };
 
 $('printBtn').onclick = () => { window.print(); };
+
+// Menu a tendina "Strumenti"
+(function(){
+  const btn = $('toolsBtn'), list = $('toolsList');
+  const close = () => { list.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); };
+  btn.onclick = e => { e.stopPropagation(); const open = list.classList.toggle('hidden') === false; btn.setAttribute('aria-expanded', String(open)); };
+  list.addEventListener('click', close);
+  document.addEventListener('click', e => { if(!$('toolsMenu').contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') close(); });
+})();
+
 
 $('loginOpen').onclick = () => {
   updateAuthUI(true);
