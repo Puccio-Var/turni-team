@@ -1055,7 +1055,7 @@ $('swForm').onsubmit = async (e) => {
     employee_id: personId,
     request_date: reqDate,
     shift_type: check.shiftType
-  }, { onConflict: 'employee_id,request_date' });
+  }, { onConflict: 'employee_id,request_date', ignoreDuplicates: true });
 
   if(error) {
     setBanner('Errore richiesta smartworking: ' + error.message, 'error');
